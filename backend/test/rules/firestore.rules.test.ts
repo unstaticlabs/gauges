@@ -340,6 +340,105 @@ describe('label read and write (point 1)', () => {
   });
 });
 
+describe('label level mode', () => {
+  /** Gives L1 (alice alone, on g1) and L2 (alice and dave) the mode `worst`, with no rules. */
+  async function withMode(): Promise<void> {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('labels/L1').update({ aggregate: 'worst' });
+      await ctx.firestore().doc('labels/L2').update({ aggregate: 'worst' });
+    });
+  }
+
+  it('lets a member set and change the mode, with each of the four values', async () => {
+    for (const mode of ['worst', 'lowerHalf', 'median', 'average']) {
+      await assertSucceeds(db('dave').doc('labels/L2').update({ aggregate: mode }));
+    }
+    await assertSucceeds(db('alice').doc('labels/L2').update({ aggregate: 'median' }));
+    const l = (await assertSucceeds(db('dave').doc('labels/L2').get())).data();
+    expect(l?.aggregate).toBe('median');
+  });
+
+  it('denies an unknown value', async () => {
+    for (const value of ['best', '', 'Worst', null, 3, ['worst']]) {
+      await assertFails(db('dave').doc('labels/L2').update({ aggregate: value }));
+    }
+  });
+
+  it('denies a user who is not a member', async () => {
+    await assertFails(db('bob').doc('labels/L1').update({ aggregate: 'average' }));
+    await withMode();
+    await assertFails(db('bob').doc('labels/L1').update({ aggregate: 'average' }));
+  });
+
+  it('lets a user create a label with or without a mode', async () => {
+    await assertSucceeds(db('carol').doc('labels/new1').set(labelData('carol')));
+    await assertSucceeds(db('carol').doc('labels/new2').set(labelData('carol', { aggregate: 'average' })));
+    await assertFails(db('carol').doc('labels/new3').set(labelData('carol', { aggregate: 'best' })));
+  });
+
+  it('keeps a label without the field valid for each write', async () => {
+    await assertSucceeds(db('dave').doc('labels/L2').update({ name: 'Our flat', emoji: '🏠' }));
+    await assertSucceeds(db('dave').doc('labels/L2').update({ members: FieldValue.arrayRemove('dave') }));
+  });
+
+  // An app that does not know the field writes only the fields that it
+  // changes. The rules check the whole document after the write, so these
+  // writes must pass on a label that has the field.
+  describe('writes of an app that does not know the field', () => {
+    beforeEach(withMode);
+
+    it('renames the label and changes its emoji', async () => {
+      await assertSucceeds(db('dave').doc('labels/L2').update({ name: 'Our flat' }));
+      await assertSucceeds(db('dave').doc('labels/L2').update({ emoji: '🏠' }));
+      await assertSucceeds(db('dave').doc('labels/L2').update({ emoji: null }));
+      const l = (await assertSucceeds(db('dave').doc('labels/L2').get())).data();
+      expect(l).toMatchObject({ name: 'Our flat', aggregate: 'worst' });
+    });
+
+    it('adds the label to a gauge and removes it, with gaugeIds', async () => {
+      const d = db('alice');
+      const add = d.batch();
+      add.update(d.doc('gauges/g1'), {
+        labelIds: FieldValue.arrayUnion('L2'),
+        members: FieldValue.arrayUnion('dave'),
+        joinVia: 'L2',
+      });
+      add.update(d.doc('labels/L2'), { gaugeIds: FieldValue.arrayUnion('g1') });
+      await assertSucceeds(add.commit());
+      const remove = d.batch();
+      remove.update(d.doc('gauges/g1'), {
+        labelIds: FieldValue.arrayRemove('L2'),
+        members: FieldValue.arrayRemove('dave'),
+      });
+      remove.update(d.doc('labels/L2'), { gaugeIds: FieldValue.arrayRemove('g1') });
+      await assertSucceeds(remove.commit());
+    });
+
+    it('joins by invite, then leaves', async () => {
+      await bobJoinsL1();
+      await assertSucceeds(db('bob').doc('labels/L1').update({ joinCode: FieldValue.delete() }));
+      await assertSucceeds(db('bob').doc('labels/L1').update({ members: FieldValue.arrayRemove('bob') }));
+      const l = (await assertSucceeds(db('alice').doc('labels/L1').get())).data();
+      expect(l).toMatchObject({ members: ['alice'], aggregate: 'worst' });
+    });
+
+    it('deletes the label', async () => {
+      await assertSucceeds(db('alice').doc('labels/L2').delete());
+    });
+
+    it('still denies a stranger and a join with a mode change', async () => {
+      await assertFails(db('bob').doc('labels/L1').update({ name: 'Mine' }));
+      await assertFails(
+        db('bob').doc('labels/L1').update({
+          members: FieldValue.arrayUnion('bob'),
+          joinCode: CODE,
+          aggregate: 'average',
+        }),
+      );
+    });
+  });
+});
+
 describe('join by invite code (point 3)', () => {
   it('lets a user join the label with the code, then join its gauges', async () => {
     await bobJoinsL1();

@@ -44,12 +44,26 @@ export interface Gauge {
   createdAt: number;
 }
 
+/**
+ * How the levels of the gauges of a label make the level of the label.
+ * - `worst`: the lowest level.
+ * - `lowerHalf`: the mean of the lower half. This is the default.
+ * - `median`: the middle level.
+ * - `average`: the mean of all levels.
+ */
+export type LabelAggregate = 'worst' | 'lowerHalf' | 'median' | 'average';
+
 /** A label is private when it has one member. It is shared when it has more. */
 export interface Label {
   id: LabelId;
   name: string;
   /** One emoji that the user picked. Missing when the user picked none: the app then shows a default. */
   emoji?: string;
+  /**
+   * How the label computes its level. All members see the same value.
+   * Missing on most labels: the label then uses `lowerHalf`.
+   */
+  aggregate?: LabelAggregate;
   members: UserId[];
   /** Each gauge that has this label. A new member uses it to find the gauges. */
   gaugeIds: GaugeId[];

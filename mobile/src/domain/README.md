@@ -13,7 +13,7 @@ This folder holds the pure TypeScript model of a gauge and its rules.
 |---|---|
 | `tone.ts` | The color of a level: green above 50, orange above 25, red for the rest. |
 | `level.ts` | The level of a gauge from 0 to 100, and the three curves. |
-| `label.ts` | The level of a label: the mean of the worse half of its gauges. |
+| `label.ts` | The level of a label from the levels of its gauges, in the mode of the label: the worst gauge, the mean of the lower half (the default), the median, or the mean of all. |
 | `groups.ts` | The grouped home view: one group for each label, the worst first, and the gauges with no label. The search and the match of label names. |
 | `sort.ts` | The order of the home list, and the split of active and archived gauges. |
 | `search.ts` | The search by name, without case and accents. |

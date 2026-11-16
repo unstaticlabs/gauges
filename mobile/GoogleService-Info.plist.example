@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
-	<string>demo-api-key</string>
+	<string>AIzaSyDemoKeyForTheLocalEmulatorOnly000</string>
 	<key>BUNDLE_ID</key>
 	<string>com.unstaticlabs.gaugesapp</string>
 	<key>CLIENT_ID</key>

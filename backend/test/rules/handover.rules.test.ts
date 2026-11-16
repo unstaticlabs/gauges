@@ -245,4 +245,16 @@ describe('claim a label', () => {
     await assertSucceeds(take('tom'));
     await assertFails(claimRemove('tom', 'labels/LS'));
   });
+
+  it('lets a claim pass on a label with a level mode, and denies a mode change in it', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('labels/LS').update({ aggregate: 'median' });
+    });
+    await assertSucceeds(take('tom'));
+    await assertFails(claimAdd('tom', 'labels/LS', { aggregate: 'worst' }));
+    await assertSucceeds(claimAdd('tom', 'labels/LS'));
+    await assertSucceeds(claimRemove('tom', 'labels/LS'));
+    const l = (await assertSucceeds(db('bob').doc('labels/LS').get())).data();
+    expect(l).toMatchObject({ members: ['bob', 'tom'], aggregate: 'median' });
+  });
 });

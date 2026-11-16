@@ -4,11 +4,13 @@ import type {
   Gauge,
   GaugeId,
   Label,
+  LabelAggregate,
   LabelId,
   UserId,
   UserProfile,
 } from '../domain/types';
 import { singleEmoji } from '../domain/emoji';
+import { LABEL_AGGREGATES } from '../domain/label';
 import type { DocData } from './port';
 import { DataError, type GaugeChanges, type NewGauge } from './repository';
 
@@ -100,6 +102,11 @@ export function labelFromDoc(id: LabelId, data: DocData): Label {
   // A label of the old app, or one with no pick, has no emoji. So does a value that is not one emoji.
   const emoji = typeof data.emoji === 'string' ? singleEmoji(data.emoji) : null;
   if (emoji) label.emoji = emoji;
+  // Most labels have no mode. An unknown value, for example from a later
+  // version of the app, also gives no mode, so the label uses the default.
+  if (LABEL_AGGREGATES.includes(data.aggregate as LabelAggregate)) {
+    label.aggregate = data.aggregate as LabelAggregate;
+  }
   return label;
 }
 
@@ -130,6 +137,14 @@ export function checkEmoji(emoji: string): string {
   const one = typeof emoji === 'string' ? singleEmoji(emoji) : null;
   if (!one) throw new DataError('invalid-argument', 'The emoji must be one emoji.');
   return one;
+}
+
+/** Gives the mode of a label level, or throws `invalid-argument`. */
+export function checkAggregate(mode: LabelAggregate): LabelAggregate {
+  if (!LABEL_AGGREGATES.includes(mode)) {
+    throw new DataError('invalid-argument', `aggregate must be one of ${LABEL_AGGREGATES.join(', ')}.`);
+  }
+  return mode;
 }
 
 export function checkRepeatDays(days: number): number {

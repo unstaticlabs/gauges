@@ -64,6 +64,13 @@ removes it. The app writes one emoji only (`singleEmoji` in
 `src/domain/emoji.ts`). The rules accept a string of 1 to 32 characters, or
 `null`.
 
+A label can have `aggregate`: how the label computes its level from the
+levels of its gauges. The values are `worst`, `lowerHalf`, `median`, and
+`average` (see `src/domain/label.ts`). It is optional. A label with no
+`aggregate`, or with an unknown value, uses `lowerHalf`.
+`setLabelAggregate(labelId, mode)` changes it for all members. Each member
+can change it, the same as the name. The rules accept the four values only.
+
 The database stores times as Firestore timestamps. The app types use epoch
 milliseconds. `mapping.ts` converts them.
 

@@ -31,6 +31,7 @@ export function sameLabel(a: Label, b: Label): boolean {
     a.id === b.id &&
     a.name === b.name &&
     a.emoji === b.emoji &&
+    a.aggregate === b.aggregate &&
     a.createdBy === b.createdBy &&
     a.createdAt === b.createdAt &&
     sameStrings(a.members, b.members) &&

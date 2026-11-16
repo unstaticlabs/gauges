@@ -282,6 +282,32 @@ describe('repository on the emulator', () => {
     await waitFor(gaugesOf(bob.repo), (gs) => !gs.some((x) => x.id === g2));
   });
 
+  it('sets the level mode of a shared label, and the other member sees it', async () => {
+    const alice = await newUser();
+    const labelId = await saved(alice.repo.createLabel('Home', '🏠'));
+    const invite = await alice.repo.createInvite(labelId);
+    const bob = await newUser();
+    await bob.repo.joinByInvite(invite);
+    const before = await waitFor(labelsOf(bob.repo), (ls: Label[]) => ls.length === 1);
+    expect(before[0]).not.toHaveProperty('aggregate');
+
+    await alice.repo.setLabelAggregate(labelId, 'worst');
+    await waitFor(labelsOf(bob.repo), (ls: Label[]) => ls[0]?.aggregate === 'worst');
+    // Any member can change it, and the other writes keep it.
+    await bob.repo.setLabelAggregate(labelId, 'median');
+    await bob.repo.renameLabel(labelId, 'Our home');
+    const after = await waitFor(labelsOf(alice.repo), (ls: Label[]) => ls[0]?.name === 'Our home');
+    expect(after[0]).toMatchObject({ aggregate: 'median', emoji: '🏠' });
+
+    await expect(alice.repo.setLabelAggregate(labelId, 'best' as never)).rejects.toMatchObject({
+      code: 'invalid-argument',
+    });
+    const stranger = await newUser();
+    await expect(stranger.repo.setLabelAggregate(labelId, 'average')).rejects.toMatchObject({
+      code: 'permission-denied',
+    });
+  });
+
   it('refuses a wrong code, a revoked code, and an expired time', async () => {
     const alice = await newUser();
     const labelId = await saved(alice.repo.createLabel('Home'));

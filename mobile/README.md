@@ -6,7 +6,7 @@ This folder holds the Gauges app. It uses Expo, Expo Router, and TypeScript in s
 
 | Folder | What goes here |
 |---|---|
-| `app/` | Routes only. Each route file renders one screen from `src/screens/`. `_layout.tsx` holds the providers and the navigator. |
+| `app/` | Routes only. Each route file renders one screen from `src/screens/`. `_layout.tsx` holds the providers and the navigator. `+html.tsx` is the root HTML of each page of the web app: the title, the description, the theme color, and the icons. |
 | `src/screens/` | The screens and their parts, one folder for each screen. See `src/screens/README.md`. |
 | `src/state/` | React context for the session, the live lists, the shared clock, the reminders, the toast, the member names, and the home view. Values that stay on the device (`storage.ts`, `inviteStore.ts`). |
 | `src/i18n/` | All user-visible text, and the formatters for times and errors. |
