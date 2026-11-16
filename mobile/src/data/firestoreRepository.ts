@@ -3,6 +3,7 @@ import { changeExecutionDate, FutureExecutionError } from '../domain/executions'
 import { createAccountOps } from './account';
 import { buildInviteUrl, INVITE_CODE_BYTES, isValidInviteCode, toBase64Url } from './invite';
 import {
+  checkAggregate,
   checkEmoji,
   checkName,
   executionToDoc,
@@ -456,6 +457,12 @@ export function createFirestoreRepository(platform: Platform): Repository {
         requireUser();
         const value = emoji === null ? null : checkEmoji(emoji);
         await fs.commit([{ type: 'update', path: labelPath(labelId), data: { emoji: value } }]);
+      }),
+
+    setLabelAggregate: (labelId, mode) =>
+      guard(async () => {
+        requireUser();
+        await fs.commit([{ type: 'update', path: labelPath(labelId), data: { aggregate: checkAggregate(mode) } }]);
       }),
 
     deleteLabel: (labelId) =>

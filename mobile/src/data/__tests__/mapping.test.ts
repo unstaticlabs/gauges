@@ -1,5 +1,5 @@
 import { DataError } from '../repository';
-import { gaugeFromDoc, labelFromDoc, newGaugeDoc, readTime } from '../mapping';
+import { checkAggregate, gaugeFromDoc, labelFromDoc, newGaugeDoc, readTime } from '../mapping';
 
 const ts = (ms: number) => ({ toMillis: () => ms });
 
@@ -45,6 +45,21 @@ describe('mapping', () => {
     expect(labelFromDoc('L1', { emoji: null })).not.toHaveProperty('emoji');
     expect(labelFromDoc('L1', { emoji: 'Home' })).not.toHaveProperty('emoji');
     expect(labelFromDoc('L1', { emoji: 5 })).not.toHaveProperty('emoji');
+  });
+
+  it('reads the level mode of a label only when it is a known mode', () => {
+    for (const mode of ['worst', 'lowerHalf', 'median', 'average']) {
+      expect(labelFromDoc('L1', { aggregate: mode }).aggregate).toBe(mode);
+    }
+    expect(labelFromDoc('L1', {})).not.toHaveProperty('aggregate');
+    expect(labelFromDoc('L1', { aggregate: 'best' })).not.toHaveProperty('aggregate');
+    expect(labelFromDoc('L1', { aggregate: null })).not.toHaveProperty('aggregate');
+    expect(labelFromDoc('L1', { aggregate: 3 })).not.toHaveProperty('aggregate');
+  });
+
+  it('refuses an unknown level mode', () => {
+    expect(checkAggregate('median')).toBe('median');
+    expect(() => checkAggregate('best' as never)).toThrow(DataError);
   });
 
   it('builds a new gauge with only the creator as member', () => {

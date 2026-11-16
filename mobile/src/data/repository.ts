@@ -4,6 +4,7 @@ import type {
   Gauge,
   GaugeId,
   Label,
+  LabelAggregate,
   LabelId,
   UserId,
   UserProfile,
@@ -262,6 +263,8 @@ export interface Repository {
   renameLabel(labelId: LabelId, name: string): Promise<void>;
   /** Sets the emoji of a label for all members. `null` removes it, so the default shows. */
   setLabelEmoji(labelId: LabelId, emoji: string | null): Promise<void>;
+  /** Sets how the label computes its level, for all members. */
+  setLabelAggregate(labelId: LabelId, mode: LabelAggregate): Promise<void>;
   /**
    * Deletes the label and removes it from each gauge of the current user.
    * Only the creator, or the last member, can delete a label.
