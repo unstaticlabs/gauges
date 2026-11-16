@@ -1,16 +1,20 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { getRepository, NAME_MAX_LENGTH } from '@/data';
-import { type Label, labelEmoji } from '@/domain';
+import { gaugeLevel, gaugesOfLabel, type Label, type LabelAggregate, labelAggregate, labelEmoji } from '@/domain';
 import { errorMessage, t } from '@/i18n';
-import { useSession, useToast } from '@/state';
-import { Button, EmojiPicker, Sheet, TextField } from '@/ui/components';
+import { useGauges, useNow, useSession, useToast } from '@/state';
+import { Button, EmojiPicker, Segmented, Sheet, TextField } from '@/ui/components';
 import { confirm } from '@/ui/platform';
 import { useTheme } from '@/ui/theme';
 
 import { Section } from '../Section';
+import { LevelModePicker } from './LevelModePicker';
 import { labelPermissions } from './permissions';
+
+/** The two parts of the edit sheet. */
+export type LabelSheetTab = 'name' | 'level';
 
 export interface LabelActionsSheetProps {
   label: Label;
@@ -18,19 +22,30 @@ export interface LabelActionsSheetProps {
   onClose: () => void;
   /** Called after a leave or a delete, for example to close the label page. */
   onGone?: () => void;
+  /** The part that shows first. The default is the name. */
+  initialTab?: LabelSheetTab;
 }
 
 /**
- * Edits a label: its emoji and its name, with one Save. Below, the user
- * leaves or deletes the label. Mount it when it opens, so that the fields
- * start with the current values.
+ * Edits a label, in two parts. "Name" has the emoji and the name, and below
+ * them the leave and the delete. "Level" has the level mode
+ * (`LevelModePicker`). One Save writes the changes of both parts. Mount it
+ * when it opens, so that the fields start with the current values.
  */
-export function LabelActionsSheet({ label, visible, onClose, onGone }: LabelActionsSheetProps) {
+export function LabelActionsSheet({ label, visible, onClose, onGone, initialTab = 'name' }: LabelActionsSheetProps) {
   const { colors, spacing, typography } = useTheme();
   const { user } = useSession();
   const showToast = useToast();
+  const now = useNow();
+  const gauges = useGauges();
+  const [tab, setTab] = useState<LabelSheetTab>(initialTab);
   const [name, setName] = useState(label.name);
   const [emoji, setEmoji] = useState<string | null>(label.emoji ?? null);
+  const [aggregate, setAggregate] = useState<LabelAggregate>(labelAggregate(label));
+  const levels = useMemo(
+    () => gaugesOfLabel(label.id, gauges.items, now).map((gauge) => gaugeLevel(gauge, now)),
+    [label.id, gauges.items, now],
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { shared, canLeave, canDelete } = labelPermissions(label, user?.uid);
@@ -38,7 +53,8 @@ export function LabelActionsSheet({ label, visible, onClose, onGone }: LabelActi
   const nameValid = trimmed.length > 0 && trimmed.length <= NAME_MAX_LENGTH;
   const nameChanged = trimmed !== label.name;
   const emojiChanged = emoji !== (label.emoji ?? null);
-  const canSave = nameValid && (nameChanged || emojiChanged);
+  const aggregateChanged = aggregate !== labelAggregate(label);
+  const canSave = nameValid && (nameChanged || emojiChanged || aggregateChanged);
 
   const fail = (e: unknown) => showToast({ message: errorMessage(e, t), tone: 'error' });
 
@@ -48,6 +64,7 @@ export function LabelActionsSheet({ label, visible, onClose, onGone }: LabelActi
     const repository = getRepository();
     if (nameChanged) repository.renameLabel(label.id, trimmed).catch(fail);
     if (emojiChanged) repository.setLabelEmoji(label.id, emoji).catch(fail);
+    if (aggregateChanged) repository.setLabelAggregate(label.id, aggregate).catch(fail);
     onClose();
     showToast({ message: t.labels.saved });
   };
@@ -100,34 +117,53 @@ export function LabelActionsSheet({ label, visible, onClose, onGone }: LabelActi
       scrollable
       testID="label-actions"
     >
-      <Section title={t.labels.emoji}>
-        <EmojiPicker value={emoji} onChange={setEmoji} />
-      </Section>
-      <TextField
-        label={t.labels.renameField}
-        value={name}
-        onChangeText={setName}
-        maxLength={NAME_MAX_LENGTH}
-        returnKeyType="done"
-        onSubmitEditing={save}
-        testID="label-rename-field"
+      <Segmented
+        options={[
+          { value: 'name', label: t.labels.tabName, testID: 'label-tab-name' },
+          { value: 'level', label: t.labels.tabLevel, testID: 'label-tab-level' },
+        ]}
+        value={tab}
+        onChange={setTab}
+        accessibilityLabel={t.labels.tabsLabel}
       />
+      {tab === 'name' ? (
+        <>
+          <Section title={t.labels.emoji}>
+            <EmojiPicker value={emoji} onChange={setEmoji} />
+          </Section>
+          <TextField
+            label={t.labels.renameField}
+            value={name}
+            onChangeText={setName}
+            maxLength={NAME_MAX_LENGTH}
+            returnKeyType="done"
+            onSubmitEditing={save}
+            testID="label-rename-field"
+          />
+        </>
+      ) : (
+        <Section title={t.labels.levelTitle}>
+          <LevelModePicker levels={levels} value={aggregate} onChange={setAggregate} />
+        </Section>
+      )}
       <Button label={t.common.save} onPress={save} disabled={!canSave} testID="label-save" />
       {error ? (
         <Text style={[typography.callout, { color: colors.danger }]} accessibilityLiveRegion="polite">
           {error}
         </Text>
       ) : null}
-      <View style={[styles.end, { gap: spacing.xs }]}>
-        {canLeave ? (
-          <Button label={t.labels.leave} variant="danger" onPress={leave} busy={busy} testID="label-leave" />
-        ) : null}
-        {canDelete ? (
-          <Button label={t.labels.deleteLabel} variant="danger" onPress={remove} busy={busy} testID="label-delete" />
-        ) : (
-          <Text style={[typography.caption, { color: colors.textMuted }]}>{t.labels.deleteHelpCreator}</Text>
-        )}
-      </View>
+      {tab === 'name' ? (
+        <View style={[styles.end, { gap: spacing.xs }]}>
+          {canLeave ? (
+            <Button label={t.labels.leave} variant="danger" onPress={leave} busy={busy} testID="label-leave" />
+          ) : null}
+          {canDelete ? (
+            <Button label={t.labels.deleteLabel} variant="danger" onPress={remove} busy={busy} testID="label-delete" />
+          ) : (
+            <Text style={[typography.caption, { color: colors.textMuted }]}>{t.labels.deleteHelpCreator}</Text>
+          )}
+        </View>
+      ) : null}
     </Sheet>
   );
 }

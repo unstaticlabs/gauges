@@ -1,6 +1,6 @@
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -10,12 +10,13 @@ import {
   type Gauge as GaugeData,
   type Label,
   labelAvatarOrder,
+  labelAggregate,
   labelEmoji,
   labelLevel,
 } from '@/domain';
 import { t } from '@/i18n';
 import { useGauges, useLabels, useNow, useToast } from '@/state';
-import { Gauge, IconButton } from '@/ui/components';
+import { Gauge, Icon, IconButton } from '@/ui/components';
 import { useTheme } from '@/ui/theme';
 
 import { AddGaugeRow } from '../home/AddGaugeRow';
@@ -25,7 +26,7 @@ import { closeOpenRow } from '../home/openRow';
 import { ShareSheet } from '../share/ShareSheet';
 import { useNameGate } from '../share/useNameGate';
 import { StatusView } from '../StatusView';
-import { LabelActionsSheet } from './LabelActionsSheet';
+import { LabelActionsSheet, type LabelSheetTab } from './LabelActionsSheet';
 import { MemberAvatars } from './MemberAvatars';
 
 const MAX_WIDTH = 640;
@@ -72,7 +73,9 @@ function LabelPage({ label, justJoined }: { label: Label; justJoined: boolean })
   const now = useNow();
   const gauges = useGauges();
   const [sharing, setSharing] = useState(false);
-  const [managing, setManaging] = useState(false);
+  /** The part of the edit sheet that is open, or `null` when it is closed. */
+  const [managing, setManaging] = useState<LabelSheetTab | null>(null);
+  const mode = labelAggregate(label);
   const { gate, sheet: nameSheet } = useNameGate();
 
   const own = useMemo(() => gaugesOfLabel(label.id, gauges.items, now), [label.id, gauges.items, now]);
@@ -94,25 +97,28 @@ function LabelPage({ label, justJoined }: { label: Label; justJoined: boolean })
                 onPress={() => gate(() => setSharing(true))}
                 testID="label-share"
               />
-              <IconButton icon="edit" label={t.labels.edit(label.name)} onPress={() => setManaging(true)} testID="label-more" />
+              <IconButton icon="edit" label={t.labels.edit(label.name)} onPress={() => setManaging('name')} testID="label-more" />
             </View>
           ),
         }}
       />
       <GaugesPage
         gauges={own}
-        level={labelLevel(own, now)}
+        level={labelLevel(own, now, mode)}
         members={members}
         emptyTitle={t.labels.pageEmptyTitle}
         emptyBody={t.labels.pageEmptyBody}
         labelId={label.id}
+        levelLine={t.labels.levelLine(t.labels.levelModes[mode].line)}
+        onLevelLine={() => setManaging('level')}
       />
       {sharing ? <ShareSheet label={label} visible onClose={() => setSharing(false)} /> : null}
       {managing ? (
         <LabelActionsSheet
           label={label}
           visible
-          onClose={() => setManaging(false)}
+          initialTab={managing}
+          onClose={() => setManaging(null)}
           onGone={() => (router.canGoBack() ? router.back() : router.replace('/'))}
         />
       ) : null}
@@ -149,10 +155,13 @@ interface GaugesPageProps {
   emptyBody: string;
   /** The label that a new gauge from this page gets. */
   labelId?: string;
+  /** A quiet line below the bar that names the level mode, and the action that opens it. */
+  levelLine?: string;
+  onLevelLine?: () => void;
 }
 
 /** The summary of a group of gauges, then its rows, then "Add a gauge". */
-function GaugesPage({ gauges, level, members, emptyTitle, emptyBody, labelId }: GaugesPageProps) {
+function GaugesPage({ gauges, level, members, emptyTitle, emptyBody, labelId, levelLine, onLevelLine }: GaugesPageProps) {
   const { colors, spacing, typography } = useTheme();
   const insets = useSafeAreaInsets();
   const now = useNow();
@@ -181,6 +190,19 @@ function GaugesPage({ gauges, level, members, emptyTitle, emptyBody, labelId }: 
             ) : null}
           </View>
           <Gauge level={level ?? 0} height={18} />
+          {levelLine && onLevelLine ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityHint={t.labels.levelLineHint}
+              onPress={onLevelLine}
+              hitSlop={8}
+              testID="label-level-line"
+              style={({ pressed }) => [styles.levelLine, { gap: spacing.xxs, opacity: pressed ? 0.6 : 1 }]}
+            >
+              <Text style={[typography.caption, { color: colors.textMuted }]}>{levelLine}</Text>
+              <Icon name="chevronRight" color={colors.textMuted} size={14} />
+            </Pressable>
+          ) : null}
         </View>
 
         {rows.length === 0 ? (
@@ -212,5 +234,11 @@ const styles = StyleSheet.create({
   },
   headerActions: {
     flexDirection: 'row',
+  },
+  levelLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    minHeight: 24,
   },
 });

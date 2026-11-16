@@ -95,14 +95,25 @@ renders one screen from here.
 - The home toggle switches between all gauges and one row for each label.
   `HomeViewProvider` stores the choice on the device.
 - A label row shows the emoji of the label, the aggregated level
-  (`labelLevel`), the number of active gauges, and the avatars when the
-  label has more than one member. The worst label comes first. The gauges
+  (`labelLevel` in the mode of the label), the number of active gauges, and
+  the avatars when the label has more than one member. The worst label
+  comes first. The gauges
   with no label of the user get a last row, "No label", with 📋. It is
   hidden when it is empty.
 - Each label has an emoji. A new label gets an emoji from its name when a
   word matches (`suggestEmoji`, French and English), else the default 🏷️.
   The edit sheet of the label has a grid of 24 emoji and a field for any
   other emoji from the system keyboard. The field keeps the last emoji only.
+- The edit sheet of a label has two parts: "Name" (the emoji, the name,
+  the leave, and the delete) and "Level" (`LevelModePicker`). The level
+  mode says which gauges make the level of the label: the worst gauge, the
+  lower half (the default), the typical gauge (the median), or the average.
+  Each option draws the gauges of the label from low to high, with the
+  gauges that count in color, a line at the level of that mode, and the bar
+  of the label. A label with fewer than two gauges shows an example. One
+  Save writes the changes of both parts, for all members. The label page
+  names the mode in a line below its bar. That line opens the sheet on
+  "Level".
 - Settings lists the labels. A row opens the label page, where the user
   shares or edits the label.
 - The search in the view by label shows the labels whose name matches,
