@@ -1,0 +1,4 @@
+node_modules/
+*.log
+# Your own Firebase project for a rules deploy
+.firebaserc
