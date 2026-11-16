@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Keyboard, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -22,6 +22,7 @@ import {
 } from '@/domain';
 import { t } from '@/i18n';
 import { useGauges, useHomeView, useLabels, useMyName, useNow } from '@/state';
+import { useAndroidKeyboardHeight } from '@/ui/platform';
 import { useTheme } from '@/ui/theme';
 
 import { LabelCard } from '../labels/LabelCard';
@@ -78,9 +79,13 @@ export function HomeScreen() {
   const addGauge = useCallback(() => router.push('/gauge/new'), [router]);
   const openSettings = useCallback(() => router.push('/settings'), [router]);
   const toggleSearch = useCallback(() => {
+    // A close also closes the keyboard. On Android, the keyboard can stay
+    // open after its field goes away.
+    if (searchOpen) Keyboard.dismiss();
     setSearchOpen((open) => !open);
     setQuery('');
-  }, []);
+  }, [searchOpen]);
+  const keyboardHeight = useAndroidKeyboardHeight();
   // An open row closes when the user leaves the screen.
   useFocusEffect(useCallback(() => () => closeOpenRow(), []));
 
@@ -96,11 +101,15 @@ export function HomeScreen() {
       style={{ backgroundColor: colors.background }}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
+      // With the search keyboard open, the user can still scroll to the end
+      // of the list and to "Add a gauge". iOS adds the inset itself. Android
+      // draws edge to edge, so it gets the keyboard height as padding.
+      automaticallyAdjustKeyboardInsets
       onScrollBeginDrag={() => closeOpenRow()}
       contentContainerStyle={[
         styles.content,
         // Room for the toast below the last row.
-        { paddingTop: insets.top + spacing.xs, paddingBottom: insets.bottom + spacing.xxxl * 2 },
+        { paddingTop: insets.top + spacing.xs, paddingBottom: insets.bottom + spacing.xxxl * 2 + keyboardHeight },
       ]}
     >
       <View style={[styles.column, { gap: spacing.lg }]}>

@@ -22,7 +22,11 @@ renders one screen from here.
   red. The name opens Settings. With no name, the line starts with the
   number.
 - At the top right: the switch "All gauges / By label" and Settings. The
-  search opens from the icon at the top left. The two buttons of the
+  search opens from the icon at the top left. The search field takes the
+  focus when it opens, so the keyboard opens at once. "Cancel" and the
+  icon close the search and the keyboard. The home list adds the height of
+  the keyboard at its end, so the last rows and "Add a gauge" stay in
+  reach. The two buttons of the
   switch tell screen readers and the browser which one is on
   (`aria-pressed`). The two views stay mounted after the first time they
   show, so that the switch is fast: a new mount of 35 rows took 2 seconds

@@ -1,3 +1,4 @@
+import { type ComponentRef, useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { t } from '@/i18n';
@@ -8,13 +9,37 @@ import { useTheme } from '@/ui/theme';
 export interface SearchFieldProps {
   value: string;
   onChange: (value: string) => void;
-  /** Closes the search. The field then shows a "Cancel" button and takes the focus. */
+  /**
+   * Closes the search. The field then shows a "Cancel" button, and takes
+   * the focus when it appears, so that the keyboard opens at once.
+   */
   onCancel?: () => void;
 }
 
 /** A rounded search field with a clear button, in the style of the system search bars. */
 export function SearchField({ value, onChange, onCancel }: SearchFieldProps) {
   const { colors, radius, spacing, typography } = useTheme();
+  const input = useRef<ComponentRef<typeof TextInput>>(null);
+  const focusOnMount = onCancel !== undefined;
+
+  // `autoFocus` alone does not work here: the field appears inside an
+  // entering animation, and an early focus call has no effect (no keyboard
+  // on the phone, no caret on the web). So try again on the next frames
+  // until the field has the focus, for at most about half a second.
+  useEffect(() => {
+    if (!focusOnMount) return;
+    let tries = 0;
+    let frame = 0;
+    const tryFocus = () => {
+      const field = input.current;
+      field?.focus();
+      tries += 1;
+      if (!field?.isFocused() && tries < 30) frame = requestAnimationFrame(tryFocus);
+    };
+    frame = requestAnimationFrame(tryFocus);
+    return () => cancelAnimationFrame(frame);
+  }, [focusOnMount]);
+
   return (
     <View style={[styles.line, { gap: spacing.xs }]}>
       <View
@@ -25,6 +50,7 @@ export function SearchField({ value, onChange, onCancel }: SearchFieldProps) {
       >
         <Icon name="search" color={colors.textMuted} size={18} />
         <TextInput
+          ref={input}
           value={value}
           onChangeText={onChange}
           placeholder={t.home.searchPlaceholder}
@@ -33,7 +59,6 @@ export function SearchField({ value, onChange, onCancel }: SearchFieldProps) {
           accessibilityRole="search"
           autoCorrect={false}
           autoCapitalize="none"
-          autoFocus={onCancel !== undefined}
           clearButtonMode="never"
           returnKeyType="search"
           enterKeyHint="search"
