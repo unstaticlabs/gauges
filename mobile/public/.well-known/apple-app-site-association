@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["5P8Z824PGN.com.unstaticlabs.gaugesapp"],
+        "components": [{ "/": "/invite*", "comment": "Invite links to a shared label" }],
+        "appID": "5P8Z824PGN.com.unstaticlabs.gaugesapp",
+        "paths": ["/invite*"]
+      }
+    ]
+  }
+}
