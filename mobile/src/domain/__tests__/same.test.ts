@@ -28,9 +28,10 @@ describe('sameGauge', () => {
 
 describe('sameLabel', () => {
   const label: Label = { id: 'l1', name: 'Home', members: ['u1'], gaugeIds: ['a'], createdBy: 'u1', createdAt: 1 };
-  it('compares the values, also the emoji', () => {
+  it('compares the values, also the emoji and the mode', () => {
     expect(sameLabel(label, { ...label })).toBe(true);
     expect(sameLabel(label, { ...label, emoji: '🏠' })).toBe(false);
+    expect(sameLabel(label, { ...label, aggregate: 'worst' })).toBe(false);
     expect(sameLabel(label, { ...label, gaugeIds: ['a', 'b'] })).toBe(false);
   });
 });

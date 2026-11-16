@@ -1,4 +1,4 @@
-import { labelLevel } from './label';
+import { labelAggregate, labelLevel } from './label';
 import { normalizeForSearch } from './search';
 import { compareRated, rateGauge } from './sort';
 import type { Gauge, Label, LabelId } from './types';
@@ -8,7 +8,7 @@ export interface LabelGroup {
   label: Label;
   /** The active gauges with this label, in the order of the home list. */
   gauges: Gauge[];
-  /** The level of the label (see `labelLevel`), or `null` with no active gauge. */
+  /** The level of the label in its own mode (see `labelLevel`), or `null` with no active gauge. */
   level: number | null;
 }
 
@@ -30,7 +30,8 @@ export function gaugesOfLabel(labelId: LabelId, gauges: readonly Gauge[], now: n
 }
 
 /**
- * Gives one group for each label, the worst level first. A label with no
+ * Gives one group for each label, the worst level first. Each label uses
+ * its own mode (see `aggregateLevels`). A label with no
  * active gauge comes last. On a tie, the order is by name, then by ID.
  * A gauge with several labels is in each of their groups.
  */
@@ -38,7 +39,7 @@ export function groupByLabel(labels: readonly Label[], gauges: readonly Gauge[],
   return labels
     .map((label) => {
       const own = gaugesOfLabel(label.id, gauges, now);
-      return { label, gauges: own, level: labelLevel(own, now) };
+      return { label, gauges: own, level: labelLevel(own, now, labelAggregate(label)) };
     })
     .sort((a, b) => {
       if (a.level !== b.level) {

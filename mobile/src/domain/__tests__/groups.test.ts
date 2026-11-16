@@ -11,8 +11,8 @@ function gaugeAt(id: string, level: number, labelIds: string[], archivedAt: numb
   return makeGauge({ id, name: id, labelIds, archivedAt, executions: [{ at: NOW - days * DAY_MS, by: 'u1' }] });
 }
 
-function label(id: string, name = id): Label {
-  return { id, name, members: ['u1'], gaugeIds: [], createdBy: 'u1', createdAt: 0 };
+function label(id: string, name = id, extra: Partial<Label> = {}): Label {
+  return { id, name, members: ['u1'], gaugeIds: [], createdBy: 'u1', createdAt: 0, ...extra };
 }
 
 describe('groupByLabel', () => {
@@ -33,6 +33,29 @@ describe('groupByLabel', () => {
     expect(groups[1].level).toBeCloseTo(60, 6);
     // A label with no active gauge comes last, with no level.
     expect(groups[2]).toMatchObject({ gauges: [], level: null });
+  });
+
+  it('computes and sorts each label with its own mode', () => {
+    // home: dishes 20 and plants 80. garden: lawn 60 and plants 80.
+    const byDefault = groupByLabel([label('garden'), label('home')], gauges, NOW);
+    expect(byDefault.map((g) => g.label.id)).toEqual(['home', 'garden']);
+    // With the average, home is 50. With the worst gauge, garden is 60.
+    const own = groupByLabel(
+      [label('garden', 'garden', { aggregate: 'worst' }), label('home', 'home', { aggregate: 'average' })],
+      gauges,
+      NOW,
+    );
+    expect(own.map((g) => g.label.id)).toEqual(['home', 'garden']);
+    expect(own[0].level).toBeCloseTo(50, 6);
+    expect(own[1].level).toBeCloseTo(60, 6);
+    // A new garden gauge at 45: garden with the worst gauge (45) now comes before home (50).
+    const lowGarden = [...gauges, gaugeAt('hedge', 45, ['garden'])];
+    const swapped = groupByLabel(
+      [label('garden', 'garden', { aggregate: 'worst' }), label('home', 'home', { aggregate: 'average' })],
+      lowGarden,
+      NOW,
+    );
+    expect(swapped.map((g) => g.label.id)).toEqual(['garden', 'home']);
   });
 
   it('orders labels with the same level by name', () => {

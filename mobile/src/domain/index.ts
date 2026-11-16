@@ -13,7 +13,15 @@ export {
   sampleCurve,
   type CurvePoint,
 } from './level';
-export { aggregateLevels, labelLevel } from './label';
+export {
+  DEFAULT_LABEL_AGGREGATE,
+  LABEL_AGGREGATES,
+  aggregateLevels,
+  countedRange,
+  labelAggregate,
+  labelLevel,
+  previewPositions,
+} from './label';
 export {
   findLabelByName,
   gaugesOfLabel,
