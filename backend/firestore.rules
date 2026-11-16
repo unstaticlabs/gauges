@@ -252,12 +252,17 @@ service cloud.firestore {
     // Labels
     // ---------------------------------------------------------------------
 
+    // `aggregate` is how the label computes its level from its gauges. It is
+    // optional: a label with no `aggregate` uses `lowerHalf`. Each update
+    // checks the whole document, so a write that does not touch the field
+    // (a rename, a join, a leave) stays valid when the field is there.
     function validLabel(d) {
       return d.keys().hasAll(['name', 'members', 'gaugeIds', 'createdBy', 'createdAt'])
-        && d.keys().hasOnly(['name', 'emoji', 'members', 'gaugeIds', 'createdBy', 'createdAt',
-                             'joinCode', 'claimVia'])
+        && d.keys().hasOnly(['name', 'emoji', 'aggregate', 'members', 'gaugeIds', 'createdBy',
+                             'createdAt', 'joinCode', 'claimVia'])
         && validName(d.name)
         && (!('emoji' in d) || d.emoji == null || validEmoji(d.emoji))
+        && (!('aggregate' in d) || d.aggregate in ['worst', 'lowerHalf', 'median', 'average'])
         && uniqueList(d.members, 100) && d.members.size() >= 1
         && uniqueList(d.gaugeIds, 500)
         && d.createdBy is string
@@ -275,8 +280,9 @@ service cloud.firestore {
               || get(invitePath(labelId, code)).data.expiresAt > request.time);
       }
 
-      // A member renames the label, changes `gaugeIds`, or removes only
-      // themselves from `members`. The last member deletes the label instead.
+      // A member renames the label, changes its emoji or its `aggregate`,
+      // changes `gaugeIds`, or removes only themselves from `members`. The
+      // last member deletes the label instead.
       function labelMemberUpdate(od, nd) {
         return me() in od.members
           && ((nd.members.toSet() == od.members.toSet()
