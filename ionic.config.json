@@ -1,7 +1,0 @@
-{
-  "name": "gauges",
-  "integrations": {
-    "capacitor": {}
-  },
-  "type": "angular"
-}

@@ -1,6 +1,0 @@
-<ion-list @list >
-  <app-task *ngFor="let task of tasks | sortTasks; trackBy: trackById" [task]="task">
-  </app-task>
-</ion-list>
-
-<ion-button [routerLink]="['/task', 'new']" id="create-new" fill="clear">Create new repeating task</ion-button>
