@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.unstaticlabs.gauges",
+      "sha256_cert_fingerprints": [
+        "D2:07:7B:5F:8C:90:4C:B9:B4:BA:4F:9B:FC:D7:B1:3E:25:24:D9:07:85:C9:6A:76:A2:3D:8A:8E:92:A1:12:F7",
+        "0B:F1:AA:34:A1:4C:E4:B7:C7:C4:92:04:4A:E1:69:E0:0C:C7:FC:4F:7A:E0:92:27:05:C6:12:64:9A:BC:7A:39"
+      ]
+    }
+  }
+]

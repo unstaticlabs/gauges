@@ -1,39 +1,39 @@
-# Specifies intentionally untracked files to ignore when using Git
-# http://git-scm.com/docs/gitignore
+# Files that Git ignores in the whole repository.
+# mobile/ and backend/ have their own .gitignore.
 
+# Editors and operating systems
 *~
 *.sw[mnpcod]
-.tmp
-*.tmp
-*.tmp.*
 *.sublime-project
 *.sublime-workspace
 .DS_Store
 Thumbs.db
-UserInterfaceState.xcuserstate
 $RECYCLE.BIN/
-
-*.log
-log.txt
-npm-debug.log*
-
 /.idea
-/.ionic
-/.sass-cache
-/.sourcemaps
-/.versions
 /.vscode
-/coverage
-/dist
-/node_modules
-/platforms
-/plugins
+
+# Logs and temporary files
+*.log
+npm-debug.log*
+.tmp
+*.tmp
+*.tmp.*
+
+# Dependencies
+node_modules/
+
+# The build output of the first version (tag old-ionic-app)
 /www
-/build
 
-.gradle
-
-# Signing keys and credentials must never be committed
+# Signing keys, credentials, and deploy settings must never be committed
 *.jks
 *.keystore
 keystore.properties
+.env
+.env*.local
+service-account*.json
+
+# Firebase emulator data and logs
+firebase-debug.log*
+firestore-debug.log*
+.firebase/

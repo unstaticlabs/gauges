@@ -1,0 +1,57 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# The settings of a deployment. Each file has a committed example
+# (.env.example and the *.example files). See README.md.
+.env
+.env*.local
+/google-services.json
+/GoogleService-Info.plist
+/.firebaserc
+# The Hosting config that scripts/deploy-web.mjs writes from firebase.json
+/firebase.deploy.json
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
+
+# Android upload key (see keystore.properties.example)
+keystore.properties
+
+# Release build output
+/build/
+
+# The local cache of the Firebase CLI after a Hosting deploy
+.firebase/

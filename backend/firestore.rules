@@ -1,0 +1,356 @@
+rules_version = '2';
+
+// Security rules for Gauges.
+//
+// Paths:
+//   users/{uid}                       a profile. The owner writes it.
+//   gauges/{gaugeId}                  a chore. `members` is the access list.
+//   labels/{labelId}                  a label. `members` is the access list.
+//   labels/{labelId}/invites/{code}   an invite. Nobody reads it. The rules
+//                                     check that it exists.
+//   handovers/{code}                  a hand-over for an account merge.
+//                                     Nobody reads it. See below.
+//
+// The rules deny every other path, for example `groups/**` and
+// `categories/**`.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function me() {
+      return request.auth.uid;
+    }
+
+    function validName(n) {
+      return n is string && n.trim().size() > 0 && n.size() <= 60;
+    }
+
+    // A list of user IDs with no duplicates.
+    function uniqueList(l, maxSize) {
+      return l is list && l.size() <= maxSize && l.toSet().size() == l.size();
+    }
+
+    function labelPath(labelId) {
+      return /databases/$(database)/documents/labels/$(labelId);
+    }
+
+    function invitePath(labelId, code) {
+      return /databases/$(database)/documents/labels/$(labelId)/invites/$(code);
+    }
+
+    // The emoji of a label: a short string. The app checks that it is one
+    // emoji. The longest emoji (a family, a flag with tags) fit in 32.
+    function validEmoji(e) {
+      return e is string && e.size() > 0 && e.size() <= 32;
+    }
+
+    function validCode(code) {
+      return code is string && code.matches('^[A-Za-z0-9_-]{32,64}$');
+    }
+
+    function handoverPath(code) {
+      return /databases/$(database)/documents/handovers/$(code);
+    }
+
+    // A claim: the caller took the hand-over `code` (its `to` is the caller),
+    // and the user that made it (`from`) is a member of the document `od`.
+    // Then the caller acts for that user on this document.
+    function claimOk(code, od) {
+      return validCode(code)
+        && get(handoverPath(code)).data.get('to', null) == me()
+        && get(handoverPath(code)).data.from in od.members;
+    }
+
+    function handoverFrom(code) {
+      return get(handoverPath(code)).data.from;
+    }
+
+    // The creator stays, or the claim moves it from the old user to the caller.
+    function creatorClaimOk(od, nd) {
+      return nd.createdBy == od.createdBy
+        || (od.createdBy == handoverFrom(nd.claimVia) && nd.createdBy == me());
+    }
+
+    // ---------------------------------------------------------------------
+    // Hand-overs (account merge)
+    // ---------------------------------------------------------------------
+    //
+    // An anonymous user (`from`) logs in to an existing account on the same
+    // device. Before the sign-in, `from` creates a hand-over with a secret
+    // code as its ID. Only the device knows the code. After the sign-in, the
+    // account sets `to` to itself. From then on, only that account can use
+    // the code: it adds itself to each gauge and label of `from` (with
+    // `claimVia`), takes the place of `from` as creator, and removes `from`.
+
+    match /handovers/{code} {
+      allow get, list: if false;
+
+      allow create: if signedIn()
+        && validCode(code)
+        && request.resource.data.keys().hasAll(['from', 'createdAt', 'expiresAt'])
+        && request.resource.data.keys().hasOnly(['from', 'createdAt', 'expiresAt'])
+        && request.resource.data.from == me()
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt < request.time + duration.value(8, 'd');
+
+      // The account takes the hand-over one time, before it expires. It can
+      // write the same value again, so that a merge can run again.
+      allow update: if signedIn()
+        && resource.data.from != me()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['to'])
+        && request.resource.data.to == me()
+        && (resource.data.get('to', null) == me()
+            || (!('to' in resource.data) && resource.data.expiresAt > request.time));
+
+      allow delete: if signedIn()
+        && (resource.data.from == me() || resource.data.get('to', null) == me());
+    }
+
+    // ---------------------------------------------------------------------
+    // Users
+    // ---------------------------------------------------------------------
+
+    match /users/{userId} {
+      // A signed-in user reads one profile by ID, for the names on avatars.
+      allow get: if signedIn();
+      allow list: if false;
+
+      // Earlier versions of the app write `hasCompletedTutorial`. Keep it valid.
+      allow create, update: if signedIn() && me() == userId
+        && request.resource.data.keys().hasOnly(['name', 'hasCompletedTutorial'])
+        && validName(request.resource.data.name)
+        && (!('hasCompletedTutorial' in request.resource.data)
+            || request.resource.data.hasCompletedTutorial is bool);
+
+      allow delete: if signedIn() && me() == userId;
+    }
+
+    // ---------------------------------------------------------------------
+    // Gauges
+    // ---------------------------------------------------------------------
+
+    function validGauge(d) {
+      return d.keys().hasAll(['name', 'repeatDays', 'curve', 'labelIds', 'members',
+                              'createdBy', 'executions', 'archivedAt', 'mutedBy', 'createdAt'])
+        && d.keys().hasOnly(['name', 'repeatDays', 'curve', 'labelIds', 'members',
+                             'createdBy', 'executions', 'archivedAt', 'mutedBy', 'createdAt',
+                             'joinVia', 'claimVia'])
+        && validName(d.name)
+        && d.repeatDays is number && d.repeatDays >= 1 && d.repeatDays <= 3650
+        && d.curve in ['linear', 'late', 'ease']
+        && uniqueList(d.labelIds, 20)
+        && uniqueList(d.members, 100)
+        && d.createdBy is string && d.createdBy in d.members
+        && d.executions is list
+        && (d.archivedAt == null || d.archivedAt is timestamp)
+        && uniqueList(d.mutedBy, 100)
+        && d.createdAt is timestamp
+        && (!('joinVia' in d) || d.joinVia is string)
+        && (!('claimVia' in d) || d.claimVia is string);
+    }
+
+    match /gauges/{gaugeId} {
+
+      // A label that the request adds must be a label of the caller, and the
+      // label must list this gauge after the write. The request names the
+      // label in `joinVia`, because rules cannot loop over a list.
+      function labelsAddedOk(od, nd) {
+        let added = nd.labelIds.toSet().difference(od.labelIds.toSet());
+        return added.size() == 0
+          || (added == [nd.joinVia].toSet()
+              && me() in getAfter(labelPath(nd.joinVia)).data.members
+              && gaugeId in getAfter(labelPath(nd.joinVia)).data.gaugeIds);
+      }
+
+      // Each user that the request adds to `members` must be a member of the
+      // label in `joinVia`, and that label must be on the gauge. So a member
+      // cannot add a stranger.
+      function membersAddedOk(od, nd) {
+        let added = nd.members.toSet().difference(od.members.toSet());
+        return added.size() == 0
+          || (nd.joinVia in nd.labelIds
+              && getAfter(labelPath(nd.joinVia)).data.members.toSet().hasAll(added));
+      }
+
+      // A member mutes or unmutes only themselves. A member can also remove
+      // the entries of users that are no longer members.
+      function mutedOk(od, nd) {
+        let added = nd.mutedBy.toSet().difference(od.mutedBy.toSet());
+        let removed = od.mutedBy.toSet().difference(nd.mutedBy.toSet());
+        return added.difference([me()].toSet()).size() == 0
+          && removed.difference([me()].toSet()).intersection(nd.members.toSet()).size() == 0;
+      }
+
+      function memberUpdate(od, nd) {
+        return me() in od.members
+          && nd.createdBy == od.createdBy
+          && nd.createdAt == od.createdAt
+          && labelsAddedOk(od, nd)
+          && membersAddedOk(od, nd)
+          && mutedOk(od, nd);
+      }
+
+      // A user that is not a member adds only their own ID to `members`, and
+      // changes nothing else. The label in `joinVia` must be on the gauge, and
+      // the user must be a member of that label. `getAfter` lets the client
+      // join the label and the gauge in one batch, but a separate earlier
+      // write works too.
+      function selfJoin(od, nd) {
+        return !(me() in od.members)
+          && nd.diff(od).affectedKeys().hasOnly(['members', 'joinVia'])
+          && nd.members.toSet() == od.members.toSet().union([me()].toSet())
+          && nd.members.size() == od.members.size() + 1
+          && nd.joinVia in od.labelIds
+          && me() in getAfter(labelPath(nd.joinVia)).data.members;
+      }
+
+      // Step 1 of a claim (see Hand-overs): the caller adds only themselves
+      // next to the old user, and can become the creator in place of the old
+      // user. Step 2 is a member update that removes the old user.
+      function gaugeClaim(od, nd) {
+        return 'claimVia' in nd
+          && claimOk(nd.claimVia, od)
+          && nd.diff(od).affectedKeys().hasOnly(['members', 'createdBy', 'mutedBy', 'claimVia'])
+          && nd.members.toSet() == od.members.toSet().union([me()].toSet())
+          && nd.createdAt == od.createdAt
+          && creatorClaimOk(od, nd)
+          && nd.mutedBy.toSet().difference(od.mutedBy.toSet()).difference([me()].toSet()).size() == 0
+          && od.mutedBy.toSet().difference(nd.mutedBy.toSet()).size() == 0;
+      }
+
+      allow get, list: if signedIn() && me() in resource.data.members;
+
+      // A new gauge has no labels, no executions, and only its creator as a
+      // member. The client adds labels with later writes.
+      allow create: if signedIn()
+        && validGauge(request.resource.data)
+        && request.resource.data.createdBy == me()
+        && request.resource.data.members == [me()]
+        && request.resource.data.labelIds.size() == 0
+        && request.resource.data.executions.size() == 0
+        && request.resource.data.mutedBy.hasOnly([me()])
+        && request.resource.data.archivedAt == null
+        && !('joinVia' in request.resource.data)
+        && !('claimVia' in request.resource.data);
+
+      allow update: if signedIn()
+        && validGauge(request.resource.data)
+        && (memberUpdate(resource.data, request.resource.data)
+            || selfJoin(resource.data, request.resource.data)
+            || gaugeClaim(resource.data, request.resource.data));
+
+      allow delete: if signedIn() && me() in resource.data.members;
+    }
+
+    // ---------------------------------------------------------------------
+    // Labels
+    // ---------------------------------------------------------------------
+
+    function validLabel(d) {
+      return d.keys().hasAll(['name', 'members', 'gaugeIds', 'createdBy', 'createdAt'])
+        && d.keys().hasOnly(['name', 'emoji', 'members', 'gaugeIds', 'createdBy', 'createdAt',
+                             'joinCode', 'claimVia'])
+        && validName(d.name)
+        && (!('emoji' in d) || d.emoji == null || validEmoji(d.emoji))
+        && uniqueList(d.members, 100) && d.members.size() >= 1
+        && uniqueList(d.gaugeIds, 500)
+        && d.createdBy is string
+        && d.createdAt is timestamp
+        && (!('joinCode' in d) || d.joinCode is string)
+        && (!('claimVia' in d) || d.claimVia is string);
+    }
+
+    match /labels/{labelId} {
+
+      function validInvite(code) {
+        return validCode(code)
+          && exists(invitePath(labelId, code))
+          && (get(invitePath(labelId, code)).data.expiresAt == null
+              || get(invitePath(labelId, code)).data.expiresAt > request.time);
+      }
+
+      // A member renames the label, changes `gaugeIds`, or removes only
+      // themselves from `members`. The last member deletes the label instead.
+      function labelMemberUpdate(od, nd) {
+        return me() in od.members
+          && ((nd.members.toSet() == od.members.toSet()
+               && nd.members.size() == od.members.size())
+              || (nd.members.toSet() == od.members.toSet().difference([me()].toSet())
+                  && nd.members.size() == od.members.size() - 1));
+      }
+
+      // A user that is not a member adds only their own ID, and proves the
+      // invite with `joinCode`.
+      function labelJoin(od, nd) {
+        return !(me() in od.members)
+          && nd.diff(od).affectedKeys().hasOnly(['members', 'joinCode'])
+          && nd.members.toSet() == od.members.toSet().union([me()].toSet())
+          && nd.members.size() == od.members.size() + 1
+          && validInvite(nd.joinCode);
+      }
+
+      // A claim (see Hand-overs) has two steps. Step 1: the caller adds only
+      // themselves next to the old user, and can become the creator in place
+      // of the old user. Step 2: the caller, now a member, removes only the
+      // old user.
+      function labelClaim(od, nd) {
+        return 'claimVia' in nd
+          && claimOk(nd.claimVia, od)
+          && nd.diff(od).affectedKeys().hasOnly(['members', 'createdBy', 'claimVia'])
+          && ((nd.members.toSet() == od.members.toSet().union([me()].toSet())
+               && creatorClaimOk(od, nd))
+              || (me() in od.members
+                  && nd.createdBy == od.createdBy
+                  && nd.members.toSet() == od.members.toSet().difference([handoverFrom(nd.claimVia)].toSet())
+                  && nd.members.size() == od.members.size() - 1));
+      }
+
+      allow get, list: if signedIn() && me() in resource.data.members;
+
+      allow create: if signedIn()
+        && validLabel(request.resource.data)
+        && request.resource.data.createdBy == me()
+        && request.resource.data.members == [me()]
+        && !('joinCode' in request.resource.data)
+        && !('claimVia' in request.resource.data);
+
+      allow update: if signedIn()
+        && validLabel(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && ((request.resource.data.createdBy == resource.data.createdBy
+             && (labelMemberUpdate(resource.data, request.resource.data)
+                 || labelJoin(resource.data, request.resource.data)))
+            || labelClaim(resource.data, request.resource.data));
+
+      // The creator deletes the label. The last member deletes it too.
+      allow delete: if signedIn() && me() in resource.data.members
+        && (resource.data.members.size() == 1 || resource.data.createdBy == me());
+
+      match /invites/{code} {
+        allow get, list: if false;
+
+        // An invite is valid until a member deletes it, or until `expiresAt`.
+        allow create: if signedIn()
+          && me() in get(labelPath(labelId)).data.members
+          && validCode(code)
+          && request.resource.data.keys().hasAll(['createdBy', 'createdAt', 'expiresAt'])
+          && request.resource.data.keys().hasOnly(['createdBy', 'createdAt', 'expiresAt'])
+          && request.resource.data.createdBy == me()
+          && request.resource.data.createdAt is timestamp
+          && (request.resource.data.expiresAt == null
+              || (request.resource.data.expiresAt is timestamp
+                  && request.resource.data.expiresAt > request.time));
+
+        allow update: if false;
+
+        allow delete: if signedIn() && me() in get(labelPath(labelId)).data.members;
+      }
+    }
+  }
+}

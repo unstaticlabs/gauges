@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="gauges-static-page" content="support">
+<title>Support – Gauges</title>
+<meta name="description" content="Help and contact for the Gauges app.">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --text: #1c1c1e;
+    --muted: #5f6368;
+    --line: #e2e2e6;
+    --link: #1f6fd1;
+    --panel: #f5f6f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121214;
+      --text: #ececf0;
+      --muted: #a1a1aa;
+      --line: #2c2c32;
+      --link: #7fb3ff;
+      --panel: #1c1c20;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  main { max-width: 42rem; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+  header .brand { font-weight: 700; font-size: 1.1rem; color: var(--text); text-decoration: none; margin-right: auto; }
+  header nav { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.95rem; }
+  h1 { font-size: 1.75rem; line-height: 1.25; margin: 28px 0 4px; }
+  h2 { font-size: 1.2rem; line-height: 1.3; margin: 32px 0 8px; }
+  h3 { font-size: 1.02rem; line-height: 1.35; margin: 20px 0 4px; }
+  p, ul, ol, table { margin: 0 0 14px; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin-bottom: 6px; }
+  a { color: var(--link); }
+  a[href^="mailto:"] { white-space: nowrap; }
+  .muted { color: var(--muted); font-size: 0.95rem; }
+  .panel { background: var(--panel); border-radius: 12px; padding: 14px 16px; margin: 16px 0; }
+  .panel p:last-child { margin-bottom: 0; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); }
+  th { font-weight: 600; }
+  footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <a class="brand" href="/">Gauges</a>
+  <nav aria-label="Pages">
+    <a href="/privacy">Privacy</a>
+    <a href="/delete-account">Delete your account</a>
+    <a href="/support" aria-current="page">Support</a>
+  </nav>
+</header>
+
+<h1>Support</h1>
+<p class="muted">Gauges by Unstatic Labs</p>
+
+<p>Gauges shows the chores that come back, as gauges that empty with time. You can share labels with the people you live with.</p>
+
+<h2>Contact</h2>
+<p>For a question, a problem, or an idea, write to <a href="mailto:gauges@unstaticlabs.com">gauges@unstaticlabs.com</a>. Tell us your phone model or browser, and what you did when the problem happened.</p>
+
+<h2>Common questions</h2>
+<h3>I see no data on the website</h3>
+<p>The website needs a login. Log in with the same Google or Apple login that you use in the phone app. On the phone, add the login in <strong>Settings</strong>, then <strong>Account</strong>.</p>
+<h3>I do not get reminders</h3>
+<p>Reminders work in the phone app only. Turn them on in <strong>Settings</strong>, and allow notifications for Gauges in the settings of your phone.</p>
+<h3>How do I share a label?</h3>
+<p>Open the label, then share it. The other person scans the QR code or opens the link.</p>
+<h3>How do I delete my account?</h3>
+<p>Read <a href="/delete-account">how to delete your account</a>.</p>
+
+<p>Read the <a href="/privacy">privacy policy</a> and the <a href="/legal">legal notice</a>.</p>
+
+<footer>
+  <p class="muted">Gauges by Unstatic Labs · <a href="/legal">Legal notice</a> · <a href="mailto:gauges@unstaticlabs.com">gauges@unstaticlabs.com</a></p>
+</footer>
+</main>
+</body>
+</html>

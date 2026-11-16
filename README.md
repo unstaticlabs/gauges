@@ -1,90 +1,96 @@
 # Gauges
 
-## Prereqs
+Gauges shows how long ago you did each chore that comes back. Each chore
+has a gauge that empties over time, and you mark the chore done with a
+swipe. You can share a label of gauges with the people you live with. The
+same app runs on iOS, on Android, and on the web.
 
-You need a mac.
-Install xcode from the App Store.
-Install command line tools `xcode-select --install`.
-Install cocoapods `sudo gem install cocoapods`.
-Install `npm` and run `npm i`. Use the Node version in `.nvmrc` (`nvm use`).
-Run `npm run build`.
+## Layout
 
-For Android you also need Android Studio (for the SDK and an emulator) and JDK 21
-— Capacitor 8 will not build on 17 or 24. `brew install openjdk@21`, then point
-gradle at it with `JAVA_HOME=/opt/homebrew/opt/openjdk@21`.
+| Folder | What it holds |
+|---|---|
+| `mobile/` | The app (Expo, React Native, and TypeScript) for iOS, Android, and the web, and the static pages of the website. |
+| `backend/` | The Firestore security rules, and the tests that run against the local Firebase emulator. Gauges has no server code. |
 
-Angular 11 runs on webpack 4, which needs `--openssl-legacy-provider` on modern
-Node. `npm run build` already sets it; note that the flag is *rejected* by Node
-16 and older, so the Node version and that flag have to move together.
+Each folder has its own `package.json`. Run the commands in that folder.
 
-### Development
+## Quick start
 
-Run `npm run build` before anything else.
+You need Node.js and npm. The emulator also needs Java 21 or later.
 
-#### iOS
+With no config, the app runs in demo mode: it uses the demo project
+`demo-gauges` and the local emulators. It can never reach a live project.
 
-##### App icon
-An iOS app needs many icon images in different sizes. Use [appiconmaker](https://appiconmaker.co) to generate all sizes from a 1024x1024 PNG. 216x216 won't be generated, use another tool to resize it.
+1. Install the packages. `backend/` imports code from `mobile/`, so install
+   `mobile/` first:
 
-## Build
+   ```sh
+   (cd mobile && npm ci)
+   (cd backend && npm ci)
+   ```
 
-### iOS
+2. Start the local emulators:
 
-For a dev build, run `npm run ios` and the product will connect to your IP address. For a production build run `npm run build` which will build the angular/ionic app and copy it into XCode. Navigate into `ios/App` and run `pod install`. Run XCode and click run.
+   ```sh
+   cd backend && npm run emulators
+   ```
 
-#### Distribution
+3. In a second terminal, start the app:
 
-Bump the project version in the `General` tab, `Build` field. Use the format `YYYYMMDD000001` where 1 is the build number for the day (i.e. if you need to build more than once a day, bump this too).
+   ```sh
+   cd mobile && npx expo start --web
+   ```
 
-Hit `Cmd + B` or go to `Product > Build`. Run `Product > Archive`. Open `Window > Organizer`. Select the correct version and validate it with `Validate App`. Once this is done, click `Distribute App`.
+   With the emulator, the login screen also offers "Continue without an
+   account". The Auth emulator shows a test login page for Google and
+   Apple.
 
-Head to [https://appstoreconnect.apple.com/](https://appstoreconnect.apple.com/). Click on `Apps`, then `Gauges: Manage recurring tasks`, then `Activity`. Your build will be in `Processing` status.
+## Tests
 
-### Android
-
-Run `npm run build` first — it builds the Angular app into `www` and copies it
-into `android/app/src/main/assets/public`. The native project reads from there,
-so skipping it means you ship whatever web assets were copied last time.
-
-```bash
-npm run build && cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21 ./gradlew bundleRelease
+```sh
+(cd mobile && npm run lint && npm run typecheck && npm test)
+(cd backend && npm run typecheck && npm test)
 ```
 
-The bundle lands in `android/app/build/outputs/bundle/release/app-release.aab`.
+The tests in `backend/` start their own emulators with a `demo-` project
+ID. The CI workflow (`.github/workflows/ci.yml`) runs the same checks on
+each pull request and on each push to `master`. It deploys nothing.
 
-#### Versioning
+## Use your own Firebase project
 
-`versionName` is read from `package.json` at build time, so bump the version
-there — not in the gradle file. `versionCode` is a separate monotonic integer in
-`android/app/build.gradle` and must be incremented by hand on **every** upload;
-Play rejects a bundle whose `versionCode` it has already seen. It does not have
-to relate to `versionName`.
+1. Create a Firebase project. Turn on Firestore and Authentication with
+   the Google and Apple providers.
+2. Add a web app, an iOS app, and an Android app to the project.
+3. Copy `mobile/.env.example` to `mobile/.env.local`, and fill in the
+   config of the web app.
+4. Download `GoogleService-Info.plist` and `google-services.json` into
+   `mobile/`. The app uses them in place of the `*.example` files.
+5. Copy `mobile/.firebaserc.example` to `mobile/.firebaserc`, and set your
+   project ID.
+6. Deploy the rules: see "Deploy the rules to your own project" in
+   `backend/README.md`.
+7. Build the website with `npm run deploy:web` in `mobile/`. See
+   `mobile/README.md` for the phone builds.
 
-Both are committed. Do not bump them only in Android Studio — that is how the
-native project silently drifted out of sync with this repo for years.
+Git ignores all these files. Change the bundle ID, the package name, and
+the domain in `mobile/app.json` and `mobile/public/` for your own app.
 
-#### Signing
+## Documentation
 
-The upload keystore is **not** in this repo and must never be committed. Copy
-`android/keystore.properties.example` to `android/keystore.properties` (which is
-gitignored) and fill it in from Bitwarden, where the `.jks` lives as a file
-attachment alongside the passwords. Point `storeFile` at a copy of the `.jks`
-kept outside the repo.
+| Page | Topic |
+|---|---|
+| [`mobile/README.md`](mobile/README.md) | The app: the folder layout, the config, the emulator, the builds, and the checks. |
+| [`backend/README.md`](backend/README.md) | The Firestore rules, their tests, and their deploy. |
 
-Without `keystore.properties` the release build still succeeds but is unsigned,
-so fresh clones and CI keep working. Play will reject an unsigned bundle.
+## The first version
 
-#### Distribution
+The first version of Gauges was an Ionic, Angular, and Capacitor app. The
+git tag `old-ionic-app` points to its last commit:
 
-Upload the `.aab` at [Play Console](https://play.google.com/console) under
-`Test and release`. Push to internal testing first, then promote to production.
+```sh
+git checkout old-ionic-app
+```
 
-Google requires the target API level to stay within one year of the latest
-Android release, so `targetSdkVersion` in `android/variables.gradle` needs
-bumping roughly annually. Raising it can change runtime behaviour — Android 16
-(API 36) forced edge-to-edge with no opt-out, for instance — so always check the
-app on an emulator of the new API level rather than only checking that it builds.
+## License
 
-## Troubleshooting
-
-If the command line tools give problems, try this: `sudo xcode-select -switch /Applications/Xcode.app/Contents/Developer`
+See [`LICENSE`](LICENSE).
