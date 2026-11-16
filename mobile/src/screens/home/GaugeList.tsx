@@ -1,0 +1,97 @@
+import { useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+
+import { type Gauge, lastExecution } from '@/domain';
+import { formatLastDone, relativeFormatter, t } from '@/i18n';
+import { useHomeView } from '@/state';
+import { Icon } from '@/ui/components';
+import { useTheme } from '@/ui/theme';
+
+import { GaugeRow } from './GaugeRow';
+import { useGaugeActions } from './useGaugeActions';
+import { useMarkDone } from './useMarkDone';
+
+export interface GaugeListProps {
+  rows: readonly { gauge: Gauge; level: number }[];
+  now: number;
+  /**
+   * `true` on the home list only: until the first swipe, a line above the
+   * list explains the swipe, and the first row shows it.
+   */
+  hint?: boolean;
+}
+
+/** The first row opens a little one time in each app start, to show the swipe. */
+let peekPlayed = false;
+
+/**
+ * The rows of gauges as one flat list with hairlines between the rows, as
+ * in the old app. A swipe to the right marks a gauge done. A swipe to the
+ * left shows Edit, Archive, and Delete. With `hint`, the list explains the
+ * swipe until the first swipe.
+ *
+ * Each row gets the level as a whole number and the last execution as text,
+ * so that the clock of the app renders a row again only when its text or
+ * its bar changes.
+ */
+export function GaugeList({ rows, now, hint = false }: GaugeListProps) {
+  const { colors, spacing, typography } = useTheme();
+  const markDone = useMarkDone();
+  const actions = useGaugeActions();
+  const { swipeLearned, learnSwipe } = useHomeView();
+  const showHint = hint && swipeLearned === false && rows.length > 0;
+  const [peekId] = useState(() => {
+    if (peekPlayed || !showHint) return null;
+    peekPlayed = true;
+    return rows[0]?.gauge.id ?? null;
+  });
+
+  return (
+    <View>
+      {showHint ? (
+        <Animated.View
+          entering={FadeIn.duration(250)}
+          exiting={FadeOut.duration(200)}
+          style={[styles.hint, { gap: spacing.sm, paddingHorizontal: spacing.page, paddingBottom: spacing.sm }]}
+          testID="swipe-hint"
+        >
+          <Icon name="arrowRight" color={colors.textMuted} size={16} />
+          <Text style={[typography.caption, styles.grow, { color: colors.textMuted }]}>{t.home.swipeHint}</Text>
+        </Animated.View>
+      ) : null}
+      {rows.map(({ gauge, level }, index) => (
+        // The move to a new place after "Done" is the only animation of a
+        // row. There is no fade in: a list of 35 rows that all fade in at
+        // the start of the app is slow on Android.
+        <Animated.View key={gauge.id} layout={LinearTransition.duration(380)}>
+          {index > 0 ? (
+            <View style={[styles.separator, { backgroundColor: colors.border, marginLeft: spacing.page }]} />
+          ) : null}
+          <GaugeRow
+            gauge={gauge}
+            level={Math.round(level)}
+            lastText={formatLastDone(lastExecution(gauge.executions)?.at ?? null, now, t, relativeFormatter)}
+            onDone={markDone}
+            actions={actions}
+            onSwiped={swipeLearned === false ? learnSwipe : undefined}
+            peek={gauge.id === peekId}
+          />
+        </Animated.View>
+      ))}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  hint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  grow: {
+    flex: 1,
+  },
+  separator: {
+    height: StyleSheet.hairlineWidth,
+  },
+});
