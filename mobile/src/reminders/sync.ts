@@ -1,4 +1,4 @@
-import { type Gauge, isRed, planReminders, type PlannedReminder, rateGauge, type TimeOfDay } from '../domain';
+import { type Gauge, isPaused, isRed, planReminders, type PlannedReminder, rateGauge, type TimeOfDay } from '../domain';
 import type { Strings } from '../i18n/en';
 import { reminderContent } from '../i18n/reminders';
 import { REMINDER_ID_PREFIX, type ReminderScheduler, type ScheduledReminder } from './types';
@@ -118,7 +118,7 @@ export async function syncOnce(
 
 /**
  * Tells if a reminder that shows now still has a reason: one of the gauges
- * that it names is red now, for this user. Without live data, it says yes.
+ * that it names is red now and not paused, for this user. Without live data, it says yes.
  */
 export function isStillDue(
   gauges: readonly Gauge[] | null,
@@ -131,6 +131,7 @@ export function isStillDue(
     (gauge) =>
       gaugeIds.includes(gauge.id) &&
       gauge.archivedAt === null &&
+      !isPaused(gauge) &&
       gauge.members.includes(userId) &&
       !gauge.mutedBy.includes(userId) &&
       isRed(rateGauge(gauge, now).level),

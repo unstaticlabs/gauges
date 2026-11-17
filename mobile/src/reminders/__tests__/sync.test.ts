@@ -257,6 +257,10 @@ describe('isStillDue', () => {
     expect(isStillDue([{ ...plants, archivedAt: NOW }], 'u1', ['plants'], NOW)).toBe(false);
     expect(isStillDue(null, 'u1', ['plants'], NOW)).toBe(true);
   });
+
+  it('says no when another member paused the gauge', () => {
+    expect(isStillDue([{ ...plants, pausedAt: NOW - 1000 }], 'u1', ['plants'], NOW)).toBe(false);
+  });
 });
 
 describe('parseReminderSettings', () => {
