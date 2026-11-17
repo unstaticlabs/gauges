@@ -135,12 +135,25 @@ service cloud.firestore {
     // Gauges
     // ---------------------------------------------------------------------
 
+    // The pause (see `mobile/src/domain/pause.ts`): `pausedAt`, `pausedMs`,
+    // and `pausedMsSince` are optional. Each update checks the whole
+    // document, so a write that does not touch them (a mark done, a rename,
+    // a join, a claim) stays valid when they are there. The limit of
+    // `pausedMs` is 20 years, the same as `PAUSED_MS_MAX` in the app.
+    function validPause(d) {
+      return (!('pausedAt' in d) || d.pausedAt == null || d.pausedAt is timestamp)
+        && (!('pausedMs' in d)
+            || (d.pausedMs is number && d.pausedMs >= 0 && d.pausedMs <= 630720000000))
+        && (!('pausedMsSince' in d) || d.pausedMsSince == null || d.pausedMsSince is timestamp);
+    }
+
     function validGauge(d) {
       return d.keys().hasAll(['name', 'repeatDays', 'curve', 'labelIds', 'members',
                               'createdBy', 'executions', 'archivedAt', 'mutedBy', 'createdAt'])
         && d.keys().hasOnly(['name', 'repeatDays', 'curve', 'labelIds', 'members',
                              'createdBy', 'executions', 'archivedAt', 'mutedBy', 'createdAt',
-                             'joinVia', 'claimVia'])
+                             'joinVia', 'claimVia', 'pausedAt', 'pausedMs', 'pausedMsSince'])
+        && validPause(d)
         && validName(d.name)
         && d.repeatDays is number && d.repeatDays >= 1 && d.repeatDays <= 3650
         && d.curve in ['linear', 'late', 'ease']
@@ -226,8 +239,8 @@ service cloud.firestore {
 
       allow get, list: if signedIn() && me() in resource.data.members;
 
-      // A new gauge has no labels, no executions, and only its creator as a
-      // member. The client adds labels with later writes.
+      // A new gauge has no labels, no executions, no pause, and only its
+      // creator as a member. The client adds labels with later writes.
       allow create: if signedIn()
         && validGauge(request.resource.data)
         && request.resource.data.createdBy == me()
@@ -236,6 +249,7 @@ service cloud.firestore {
         && request.resource.data.executions.size() == 0
         && request.resource.data.mutedBy.hasOnly([me()])
         && request.resource.data.archivedAt == null
+        && !request.resource.data.keys().hasAny(['pausedAt', 'pausedMs', 'pausedMsSince'])
         && !('joinVia' in request.resource.data)
         && !('claimVia' in request.resource.data);
 

@@ -205,6 +205,42 @@ describe('claim a gauge', () => {
   });
 });
 
+describe('claim a paused gauge', () => {
+  // An app that does not know the pause fields makes the same claim writes.
+  // They must pass on a gauge that has the fields.
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const pause = { pausedAt: ts(-DAY), pausedMs: 2 * DAY, pausedMsSince: ts(-5 * DAY) };
+      await ctx.firestore().doc('gauges/gA').update(pause);
+      await ctx.firestore().doc('gauges/gB').update(pause);
+    });
+  });
+
+  it('lets the new account claim, then remove the old account and take its executions', async () => {
+    await assertSucceeds(take('tom'));
+    const claim = (path: string, extra: Record<string, unknown> = {}) =>
+      db('tom').doc(path).update({ members: FieldValue.arrayUnion('tom'), claimVia: CODE, ...extra });
+    await assertSucceeds(claim('gauges/gA', { createdBy: 'tom', mutedBy: FieldValue.arrayUnion('tom') }));
+    await assertSucceeds(claim('gauges/gB'));
+    await assertSucceeds(
+      db('tom').doc('gauges/gB').update({
+        members: ['bob', 'tom'],
+        mutedBy: [],
+        executions: [{ at: ts(-DAY), by: 'tom' }],
+      }),
+    );
+    const g = (await assertSucceeds(db('tom').doc('gauges/gA').get())).data();
+    expect(g).toMatchObject({ createdBy: 'tom', pausedMs: 2 * DAY });
+  });
+
+  it('denies a claim that also changes the pause', async () => {
+    await assertSucceeds(take('tom'));
+    await assertFails(
+      db('tom').doc('gauges/gA').update({ members: FieldValue.arrayUnion('tom'), claimVia: CODE, pausedAt: null }),
+    );
+  });
+});
+
 describe('claim a label', () => {
   const claimAdd = (uid: string, path: string, extra: Record<string, unknown> = {}) =>
     db(uid).doc(path).update({ members: FieldValue.arrayUnion(uid), claimVia: CODE, ...extra });
