@@ -85,8 +85,11 @@ renders one screen from here.
   (`reuseUnchanged`). A memoized row then renders again only when it
   changes, not on each tick of the clock or on each snapshot.
 - The gauge page has the state (the same bar as the rows), the settings of
-  the gauge, the switch "Remind me about this gauge", the history (the 5
-  most recent executions, and "I did it on…"), then Archive and Delete. It
+  the gauge, the switch "Remind me about this gauge", "Pause" or "Resume"
+  with one line of help, the history (the 5 most recent executions, and
+  "I did it on…"), then Archive and Delete. A pause is for all members, and
+  it needs a connection (a transaction). A paused gauge shows "Paused since
+  …" in place of "Turns red in …". It
   has no "Done" button: the row has the action. Save shows only when there
   is a change. A press on an execution opens a sheet to change its time or
   to remove it.
