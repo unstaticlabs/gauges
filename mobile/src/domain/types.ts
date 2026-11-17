@@ -42,6 +42,22 @@ export interface Gauge {
   /** The users that get no reminder for this gauge. */
   mutedBy: UserId[];
   createdAt: number;
+  /**
+   * The start of the current pause. Missing or `null` when the gauge is not
+   * paused. An execution after this time ends the pause (see `pause.ts`).
+   */
+  pausedAt?: number | null;
+  /**
+   * The paused time of the earlier pauses since the last execution, in
+   * milliseconds. Missing means 0.
+   */
+  pausedMs?: number;
+  /**
+   * The time of the last execution when the app wrote `pausedMs`, or `null`
+   * when the gauge had no execution. `pausedMs` counts only while this
+   * execution is still the last one.
+   */
+  pausedMsSince?: number | null;
 }
 
 /**

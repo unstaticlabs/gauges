@@ -135,3 +135,22 @@ describe('previewPositions', () => {
     }
   });
 });
+
+describe('labelLevel with paused gauges', () => {
+  /** A gauge at a level, paused since one day before NOW. */
+  const pausedAt = (level: number) => ({ ...gaugeAt(level), pausedAt: NOW - DAY_MS / 100 });
+
+  it('ignores paused gauges in each of the four modes', () => {
+    const gauges = [gaugeAt(70), gaugeAt(30), pausedAt(0), pausedAt(5)];
+    expect(labelLevel(gauges, NOW, 'worst')).toBeCloseTo(30, 6);
+    expect(labelLevel(gauges, NOW, 'lowerHalf')).toBeCloseTo(30, 6);
+    expect(labelLevel(gauges, NOW, 'median')).toBeCloseTo(50, 6);
+    expect(labelLevel(gauges, NOW, 'average')).toBeCloseTo(50, 6);
+  });
+
+  it('gives null when all gauges are paused', () => {
+    for (const mode of LABEL_AGGREGATES) {
+      expect(labelLevel([pausedAt(10), pausedAt(90)], NOW, mode)).toBeNull();
+    }
+  });
+});

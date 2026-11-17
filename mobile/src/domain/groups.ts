@@ -1,4 +1,5 @@
 import { labelAggregate, labelLevel } from './label';
+import { isPaused } from './pause';
 import { normalizeForSearch } from './search';
 import { compareRated, rateGauge } from './sort';
 import type { Gauge, Label, LabelId } from './types';
@@ -6,13 +7,18 @@ import type { Gauge, Label, LabelId } from './types';
 /** One label in the grouped home view. */
 export interface LabelGroup {
   label: Label;
-  /** The active gauges with this label, in the order of the home list. */
+  /** The active gauges with this label, in the order of the home list. The paused gauges come last. */
   gauges: Gauge[];
-  /** The level of the label in its own mode (see `labelLevel`), or `null` with no active gauge. */
+  /**
+   * The level of the label in its own mode (see `labelLevel`), or `null`
+   * when no gauge counts: no active gauge, or only paused gauges.
+   */
   level: number | null;
+  /** The number of paused gauges in `gauges`. */
+  pausedCount: number;
 }
 
-/** Gives the active gauges in the order of the home list. */
+/** Gives the active gauges in the order of the home list. The paused gauges come last. */
 function sortedActive(gauges: readonly Gauge[], now: number): Gauge[] {
   return gauges
     .filter((gauge) => gauge.archivedAt === null)
@@ -29,24 +35,34 @@ export function gaugesOfLabel(labelId: LabelId, gauges: readonly Gauge[], now: n
   );
 }
 
+/** The place of a group in the list: 0 with a level, 1 with only paused gauges, 2 with no gauge. */
+function groupRank(group: LabelGroup): number {
+  if (group.level !== null) return 0;
+  return group.gauges.length > 0 ? 1 : 2;
+}
+
 /**
  * Gives one group for each label, the worst level first. Each label uses
- * its own mode (see `aggregateLevels`). A label with no
- * active gauge comes last. On a tie, the order is by name, then by ID.
- * A gauge with several labels is in each of their groups.
+ * its own mode (see `aggregateLevels`). A label with only paused gauges
+ * comes after the labels with a level, and a label with no active gauge
+ * comes last. On a tie, the order is by name, then by ID. A gauge with
+ * several labels is in each of their groups.
  */
 export function groupByLabel(labels: readonly Label[], gauges: readonly Gauge[], now: number): LabelGroup[] {
   return labels
     .map((label) => {
       const own = gaugesOfLabel(label.id, gauges, now);
-      return { label, gauges: own, level: labelLevel(own, now, labelAggregate(label)) };
+      return {
+        label,
+        gauges: own,
+        level: labelLevel(own, now, labelAggregate(label)),
+        pausedCount: own.filter(isPaused).length,
+      };
     })
     .sort((a, b) => {
-      if (a.level !== b.level) {
-        if (a.level === null) return 1;
-        if (b.level === null) return -1;
-        return a.level - b.level;
-      }
+      const rank = groupRank(a) - groupRank(b);
+      if (rank !== 0) return rank;
+      if (a.level !== null && b.level !== null && a.level !== b.level) return a.level - b.level;
       const byName = a.label.name.localeCompare(b.label.name);
       if (byName !== 0) return byName;
       return a.label.id < b.label.id ? -1 : a.label.id > b.label.id ? 1 : 0;

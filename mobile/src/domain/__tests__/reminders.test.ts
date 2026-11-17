@@ -67,3 +67,14 @@ describe('planReminders', () => {
     expect(planReminders({ gauges: [gauge], userId: 'u1', now: NOW, timeOfDay: NINE })).toHaveLength(14);
   });
 });
+
+describe('planReminders and paused gauges', () => {
+  it('leaves out a paused gauge, also when its frozen level is red', () => {
+    const red = { executions: [{ at: local(5, 1, 9), by: 'u1' }] };
+    const paused = makeGauge({ id: 'paused', name: 'Paused', ...red, pausedAt: local(5, 9, 9) });
+    const active = makeGauge({ id: 'active', name: 'Active', ...red });
+    const plan = planReminders({ gauges: [paused, active], userId: 'u1', now: NOW, timeOfDay: NINE, days: 2 });
+    expect(plan.map((p) => p.gaugeIds)).toEqual([['active'], ['active']]);
+    expect(planReminders({ gauges: [paused], userId: 'u1', now: NOW, timeOfDay: NINE, days: 14 })).toEqual([]);
+  });
+});

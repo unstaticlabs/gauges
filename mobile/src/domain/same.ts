@@ -18,6 +18,9 @@ export function sameGauge(a: Gauge, b: Gauge): boolean {
     a.createdBy === b.createdBy &&
     a.archivedAt === b.archivedAt &&
     a.createdAt === b.createdAt &&
+    (a.pausedAt ?? null) === (b.pausedAt ?? null) &&
+    (a.pausedMs ?? 0) === (b.pausedMs ?? 0) &&
+    (a.pausedMsSince ?? null) === (b.pausedMsSince ?? null) &&
     sameStrings(a.labelIds, b.labelIds) &&
     sameStrings(a.members, b.members) &&
     sameStrings(a.mutedBy, b.mutedBy) &&

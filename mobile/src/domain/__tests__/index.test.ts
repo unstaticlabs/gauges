@@ -15,6 +15,10 @@ describe('domain index', () => {
       'changeExecutionDate',
       'removeExecution',
       'planReminders',
+      'isPaused',
+      'pauseChanges',
+      'resumeChanges',
+      'lowCount',
     ]) {
       expect(typeof (domain as Record<string, unknown>)[name]).toBe('function');
     }
