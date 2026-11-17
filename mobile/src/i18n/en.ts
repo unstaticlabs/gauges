@@ -106,6 +106,18 @@ export const en = {
     archive: 'Archive',
     delete: 'Delete',
     rowActions: (name: string) => `Actions for ${name}`,
+    // The pause of a gauge. A paused gauge does not empty and gets no reminder.
+    pause: 'Pause',
+    resume: 'Resume',
+    swipeResume: 'Resume',
+    rowHintPaused: 'Swipe right to resume it. Swipe left to edit, archive, or delete.',
+    /** The heading above the paused gauges at the end of a list. */
+    pausedSection: 'Paused',
+    /** The second line of a paused row, in place of "Done … ago". */
+    pausedSince: (date: string) => `Paused since ${date}`,
+    pausedSpoken: 'paused',
+    pausedToast: (name: string) => `${name}: paused`,
+    resumedToast: (name: string) => `${name}: resumed`,
     /** The action at the end of the list during a search: it creates a gauge with this name. */
     addNamed: (name: string) => `Add “${name}”`,
     // The empty home of a user with no login.
@@ -123,6 +135,10 @@ export const en = {
     noLabel: 'No label',
     gaugeCount: (n: number) => (n === 1 ? '1 gauge' : `${n} gauges`),
     noGauges: 'No gauges',
+    /** The number of paused gauges of a label, after the number of gauges. */
+    pausedCount: (n: number) => `${n} paused`,
+    /** In place of the level of a label whose gauges are all paused. */
+    allPaused: 'All paused',
     cardHint: 'Opens the gauges with this label',
     sharedWith: (names: string) => `Shared with ${names}`,
     someone: 'Someone',
@@ -382,6 +398,7 @@ export const en = {
   errors: {
     offline: 'You are offline. Try again when you have a connection.',
     offlineTransaction: 'You are offline. Changing a date needs a connection.',
+    offlinePause: 'You are offline. A pause or a resume needs a connection.',
     permission: 'You do not have access to this gauge anymore.',
     notFound: 'This item does not exist anymore. Another device changed it.',
     invalid: 'Check the values and try again.',

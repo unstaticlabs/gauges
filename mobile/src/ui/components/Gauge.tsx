@@ -18,6 +18,8 @@ export interface GaugeProps {
   duration?: number;
   /** The label that screen readers read. */
   accessibilityLabel?: string;
+  /** A paused gauge: the fill is a neutral grey, not the color of its level. */
+  paused?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -26,11 +28,12 @@ export interface GaugeProps {
  * app: a rounded track, and a rounded fill inside it. A change of `level`
  * animates the bar and its color. The first render does not animate.
  */
-export function Gauge({ level, height = 14, duration = 900, accessibilityLabel, style }: GaugeProps) {
+export function Gauge({ level, height = 14, duration = 900, accessibilityLabel, paused = false, style }: GaugeProps) {
   const theme = useTheme();
   const value = clampLevel(level);
   const animated = useSharedValue(value);
   const { green, orange, red } = theme.colors.gauge;
+  const grey = theme.colors.gaugePaused;
   const inset = height >= 10 ? 2 : 0;
 
   useEffect(() => {
@@ -41,7 +44,7 @@ export function Gauge({ level, height = 14, duration = 900, accessibilityLabel, 
     const v = animated.value;
     return {
       width: `${Math.max(MIN_FILL, v)}%`,
-      backgroundColor: v > GREEN_ABOVE ? green : v > ORANGE_ABOVE ? orange : red,
+      backgroundColor: paused ? grey : v > GREEN_ABOVE ? green : v > ORANGE_ABOVE ? orange : red,
     };
   });
 

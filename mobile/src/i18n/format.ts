@@ -116,6 +116,25 @@ export function fromLocalInputValue(value: string): number | null {
 }
 
 /**
+ * Formats a date with no time in the local time zone, for example "3 Oct"
+ * in France and "Oct 3" in the United States. A date in another year than
+ * `now` gets the year too.
+ */
+export function formatShortDate(ms: number, locale: DateLocale, now: number): string {
+  const date = new Date(ms);
+  const sameYear = date.getFullYear() === new Date(now).getFullYear();
+  try {
+    return new Intl.DateTimeFormat(locale.tag, {
+      day: 'numeric',
+      month: 'short',
+      year: sameYear ? undefined : 'numeric',
+    }).format(date);
+  } catch {
+    return toLocalInputValue(ms).slice(0, 10);
+  }
+}
+
+/**
  * Formats a date and a time in the local time zone, for the history list.
  * The order of the parts and the clock follow the device, for example
  * "Sat 14 Nov, 18:05" in France.
