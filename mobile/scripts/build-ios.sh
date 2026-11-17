@@ -2,6 +2,7 @@
 # Builds the iOS app for the App Store on this Mac.
 #
 #   scripts/build-ios.sh              # archive and export a signed .ipa
+#   scripts/build-ios.sh --upload     # the same, then upload it to App Store Connect
 #   scripts/build-ios.sh --unsigned   # only check that Release compiles, no signing
 #
 # It needs the config of your deployment: GoogleService-Info.plist and
@@ -10,9 +11,13 @@
 #
 # Steps: a clean prebuild (with CocoaPods), `xcodebuild archive` for Release
 # with automatic signing for your team, then an export for App Store
-# Connect. Xcode uses the Apple account that is logged in to Xcode (Xcode >
-# Settings > Accounts). The output goes to mobile/build/. Upload the .ipa
-# with the Transporter app.
+# Connect. The output goes to mobile/build/.
+#
+# Signing uses an App Store Connect API key when .env.local sets
+# ASC_KEY_ID, ASC_ISSUER_ID, and ASC_KEY_PATH (the AuthKey_<id>.p8 file).
+# Else Xcode uses the Apple account that is logged in to Xcode (Xcode >
+# Settings > Accounts). --upload needs the key. Without --upload, upload
+# the .ipa with the Transporter app.
 set -eu
 
 cd "$(dirname "$0")/.."
@@ -20,10 +25,12 @@ MOBILE=$(pwd)
 OUT="$MOBILE/build"
 SCHEME=Gauges
 UNSIGNED=0
+UPLOAD=0
 for arg in "$@"; do
   case "$arg" in
     --unsigned) UNSIGNED=1 ;;
-    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+    --upload) UPLOAD=1 ;;
+    -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
     *) echo "Unknown option: $arg" >&2; exit 2 ;;
   esac
 done
@@ -46,6 +53,34 @@ TEAM=$(sed -n 's/^APPLE_TEAM_ID=//p' .env.local | head -n 1)
 if [ "$UNSIGNED" = 0 ] && [ -z "$TEAM" ]; then
   stop "APPLE_TEAM_ID has no value in .env.local. Set your Apple Developer team ID, or use --unsigned."
 fi
+[ "$UNSIGNED" = 1 ] && [ "$UPLOAD" = 1 ] && stop "--upload needs a signed build. Do not use it with --unsigned."
+
+# The optional App Store Connect API key. With all three values and the key
+# file, the archive and the export sign with the key, so Xcode needs no
+# logged-in account. The script never prints the key or its path.
+envValue() { sed -n "s/^$1=//p" .env.local | head -n 1; }
+ASC_KEY_ID=$(envValue ASC_KEY_ID)
+ASC_ISSUER_ID=$(envValue ASC_ISSUER_ID)
+ASC_KEY_PATH=$(envValue ASC_KEY_PATH)
+case "$ASC_KEY_PATH" in "~/"*) ASC_KEY_PATH="$HOME/${ASC_KEY_PATH#"~/"}" ;; esac
+USE_KEY=0
+if [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER_ID" ] && [ -n "$ASC_KEY_PATH" ]; then
+  [ -r "$ASC_KEY_PATH" ] || stop "ASC_KEY_PATH in .env.local does not name a readable file."
+  USE_KEY=1
+elif [ -n "$ASC_KEY_ID$ASC_ISSUER_ID$ASC_KEY_PATH" ]; then
+  stop "Set all three of ASC_KEY_ID, ASC_ISSUER_ID, and ASC_KEY_PATH in .env.local, or none."
+fi
+if [ "$UPLOAD" = 1 ] && [ "$USE_KEY" = 0 ]; then
+  stop "--upload needs an App Store Connect API key. Set ASC_KEY_ID, ASC_ISSUER_ID, and ASC_KEY_PATH in .env.local."
+fi
+# The arguments of xcodebuild for the key, in the positional parameters.
+if [ "$USE_KEY" = 1 ]; then
+  set -- -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" \
+    -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+else
+  set --
+fi
+
 command -v xcodebuild >/dev/null || stop "xcodebuild is missing. Install Xcode."
 command -v pod >/dev/null || stop "CocoaPods is missing."
 
@@ -81,10 +116,14 @@ if [ "$UNSIGNED" = 1 ]; then
   exit 0
 fi
 
-say "Archive Release with automatic signing for team $TEAM"
+if [ "$USE_KEY" = 1 ]; then
+  say "Archive Release with automatic signing for team $TEAM (App Store Connect API key $ASC_KEY_ID)"
+else
+  say "Archive Release with automatic signing for team $TEAM (the account in Xcode)"
+fi
 xcodebuild archive -workspace ios/$SCHEME.xcworkspace -scheme $SCHEME -configuration Release \
   -destination 'generic/platform=iOS' -archivePath "$ARCHIVE" \
-  -allowProvisioningUpdates \
+  -allowProvisioningUpdates "$@" \
   DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic | tail -n 30
 [ -d "$ARCHIVE" ] || stop "The archive failed."
 
@@ -110,9 +149,27 @@ say "Export ($DESTINATION)"
 EXPORT="$OUT/Gauges-$VERSION-$BUILD"
 rm -rf "$EXPORT"
 xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportPath "$EXPORT" -exportOptionsPlist "$OPTIONS" \
-  -allowProvisioningUpdates | tail -n 20
+  -allowProvisioningUpdates "$@" | tail -n 20
 
 say "Result"
 echo "Version $VERSION, build $BUILD"
-ls "$EXPORT"/*.ipa
-echo "Upload it with the Transporter app."
+IPA=$(ls "$EXPORT"/*.ipa 2>/dev/null | head -n 1)
+[ -n "$IPA" ] || stop "The export made no .ipa."
+echo "$IPA"
+if [ "$UPLOAD" = 0 ]; then
+  echo "Upload it with the Transporter app, or run this script with --upload."
+  exit 0
+fi
+
+# 5. Upload with the same key. altool reads the key file from --p8-file-path.
+say "Upload to App Store Connect"
+UPLOAD_LOG="$OUT/upload-$VERSION-$BUILD.log"
+if xcrun altool --upload-package "$IPA" --api-key "$ASC_KEY_ID" --api-issuer "$ASC_ISSUER_ID" \
+  --p8-file-path "$ASC_KEY_PATH" --output-format normal >"$UPLOAD_LOG" 2>&1; then
+  tail -n 20 "$UPLOAD_LOG"
+  echo
+  echo "UPLOAD OK: version $VERSION, build $BUILD is on App Store Connect. Apple processes it before it shows in TestFlight."
+else
+  tail -n 40 "$UPLOAD_LOG" >&2
+  stop "The upload failed. See $UPLOAD_LOG. A build number can go up one time only: if this one is there already, set a new build number."
+fi

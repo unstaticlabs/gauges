@@ -35,7 +35,7 @@ example:
 
 | File | Example | What it holds |
 |---|---|---|
-| `.env.local` | `.env.example` | The Firebase web config, the Google web client ID, the website URL, and the Apple team ID for the iOS build. |
+| `.env.local` | `.env.example` | The Firebase web config, the Google web client ID, the website URL, the Apple team ID for the iOS build, and an optional App Store Connect API key (see "Release builds"). |
 | `GoogleService-Info.plist` | `GoogleService-Info.plist.example` | The Firebase config of the iOS app. |
 | `google-services.json` | `google-services.json.example` | The Firebase config of the Android app. |
 | `.firebaserc` | `.firebaserc.example` | The Firebase project for the website deploy. |
@@ -183,7 +183,29 @@ The release builds need the config of your deployment (see "Config").
 |---|---|
 | `npm run deploy:web` | Builds the website into `dist/` and checks it: no emulator host, the config of `.env.local`, the Content-Security-Policy hashes, and no HTML comment in the static pages. It prints the deploy command. With `-- --deploy`, it also deploys to Firebase Hosting. |
 | `npm run build:android` | A clean prebuild, then a signed Android App Bundle in `build/`. Add `-- --apk` for an APK too. |
-| `npm run build:ios` | A clean prebuild, then a signed `.ipa` in `build/`. Add `-- --unsigned` for a compile check without signing. |
+| `npm run build:ios` | A clean prebuild, then a signed `.ipa` in `build/`. Add `-- --unsigned` for a compile check without signing. Add `-- --upload` to upload the `.ipa` to App Store Connect after the export (it needs the API key below). |
+
+The iOS build signs with the Apple account that is logged in to Xcode
+(Xcode > Settings > Accounts). It can sign with an App Store Connect API
+key instead. Then the Mac needs no logged-in account. Create a key in App
+Store Connect (Users and Access > Integrations), keep the
+`AuthKey_<key id>.p8` file outside the repository, and set all three
+values in `.env.local`:
+
+```sh
+ASC_KEY_ID=ABC123DEFG
+ASC_ISSUER_ID=00000000-0000-0000-0000-000000000000
+ASC_KEY_PATH=/path/to/AuthKey_ABC123DEFG.p8
+```
+
+With the key, the archive and the export pass it to `xcodebuild`
+(`-authenticationKeyPath`, `-authenticationKeyID`, and
+`-authenticationKeyIssuerID`, with `-allowProvisioningUpdates`).
+`--upload` then sends the `.ipa` with `xcrun altool --upload-package` and
+the same key, and prints `UPLOAD OK` or stops with an error and a
+non-zero exit. The upload output goes to `build/upload-<version>-<build>.log`.
+`--upload` without the three values stops before the build. The script
+never prints the key.
 
 The version is `expo.version` in `app.json`. The build number is
 `expo.ios.buildNumber` and `expo.android.versionCode`. Each store needs a
