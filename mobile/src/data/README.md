@@ -71,6 +71,19 @@ levels of its gauges. The values are `worst`, `lowerHalf`, `median`, and
 `setLabelAggregate(labelId, mode)` changes it for all members. Each member
 can change it, the same as the name. The rules accept the four values only.
 
+A gauge can have three pause fields: `pausedAt` (a timestamp or `null`),
+`pausedMs` (a number of milliseconds), and `pausedMsSince` (a timestamp or
+`null`). See "The pause of a gauge" in `src/domain/README.md`. They are
+optional: a gauge with none of them is not paused. `pauseGauge(gaugeId)`
+and `resumeGauge(gaugeId)` change them for all members, in a transaction:
+a pause of a paused gauge and a resume of an active gauge write nothing,
+and two resumes at once count the paused time one time. The other writes
+(`markDone`, `editExecution`, `removeExecution`) do not touch the fields:
+the domain rules drop a pause and a paused time that a new execution
+makes old. So the writes of an earlier version of the app stay correct.
+The rules accept the fields on each update, and refuse them on a new
+gauge.
+
 The database stores times as Firestore timestamps. The app types use epoch
 milliseconds. `mapping.ts` converts them.
 

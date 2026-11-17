@@ -6,6 +6,9 @@
 import { createWebRepository, disposeWebApps } from '../../../mobile/src/data/client.web';
 import { type EmulatorConfig, WEBSITE_URL } from '../../../mobile/src/data/config';
 import type { Gauge, Label } from '../../../mobile/src/domain/types';
+import { gaugeLevel } from '../../../mobile/src/domain/level';
+import { isPaused } from '../../../mobile/src/domain/pause';
+import { makeGauge as makeGaugeStub } from '../../../mobile/src/domain/__testSupport__/makeGauge';
 import { type Created, DataError, type Repository } from '../../../mobile/src/data/repository';
 
 import { loadRules } from '../rules/emulator';
@@ -37,10 +40,10 @@ async function saved<Id extends string>(created: Created<Id>): Promise<Id> {
 
 let counter = 0;
 
-/** Makes a signed-in user with their own Firebase app. */
-async function newUser(): Promise<{ repo: Repository; uid: string }> {
+/** Makes a signed-in user with their own Firebase app. `now` replaces the clock of the repository. */
+async function newUser(now?: () => number): Promise<{ repo: Repository; uid: string }> {
   counter += 1;
-  const repo = createWebRepository({ appName: `user-${counter}`, emulator: emulator() });
+  const repo = createWebRepository({ appName: `user-${counter}`, emulator: emulator(), now });
   const user = await repo.signInAnonymously();
   return { repo, uid: user.uid };
 }
@@ -237,6 +240,102 @@ describe('repository on the emulator', () => {
     expect(g).toMatchObject({ archivedAt: null, name: 'Car service', repeatDays: 180, mutedBy: [alice.uid] });
     await alice.repo.deleteGauge(id);
     expect(await waitFor(gaugesOf(alice.repo), (gs) => gs.length === 0)).toEqual([]);
+  });
+
+  describe('pause', () => {
+    const DAY = 86400000;
+
+    /** Alice and bob share a gauge that alice did 10 days ago. Each has their own clock. */
+    async function sharedGauge() {
+      const clock = { alice: Date.now(), bob: Date.now() };
+      const alice = await newUser(() => clock.alice);
+      const bob = await newUser(() => clock.bob);
+      const labelId = await saved(alice.repo.createLabel('Garden'));
+      const id = await saved(
+        alice.repo.createGauge({
+          name: 'Fertilize',
+          repeatDays: 30,
+          curve: 'linear',
+          labelIds: [labelId],
+          doneAt: Date.now() - 10 * DAY,
+        }),
+      );
+      await bob.repo.joinByInvite(await alice.repo.createInvite(labelId));
+      await gaugeAs(bob.repo, id);
+      return { alice, bob, clock, id };
+    }
+
+    it('pauses a shared gauge, and the other member sees it live and resumes it', async () => {
+      const { alice, bob, clock, id } = await sharedGauge();
+      const live = waitFor(gaugesOf(bob.repo), (gs) => isPaused(byId(id)(gs) ?? makeGaugeStub()));
+      clock.alice = Date.now() - 4 * DAY;
+      await alice.repo.pauseGauge(id);
+      const [seen] = (await live).filter((g) => g.id === id);
+      expect(seen.pausedAt).toBe(clock.alice);
+      // The frozen level: 6 days of 36 (30 days x 1.2) are gone.
+      expect(gaugeLevel(seen, Date.now() + 100 * DAY)).toBeCloseTo(100 - (100 * 6) / 36, 3);
+
+      // A second pause does nothing: the start stays.
+      clock.alice = Date.now();
+      await alice.repo.pauseGauge(id);
+      const again = await waitFor(gaugesOf(alice.repo), (gs) => byId(id)(gs)?.pausedAt != null);
+      expect(byId(id)(again)?.pausedAt).toBe(seen.pausedAt);
+
+      clock.bob = Date.now();
+      await bob.repo.resumeGauge(id);
+      const resumed = await waitFor(gaugesOf(alice.repo), (gs) => byId(id)(gs)?.pausedAt == null);
+      const g = byId(id)(resumed)!;
+      expect(isPaused(g)).toBe(false);
+      expect(g.pausedMs).toBe(clock.bob - (seen.pausedAt as number));
+      expect(gaugeLevel(g, clock.bob)).toBeCloseTo(100 - (100 * 6) / 36, 3);
+      // A resume of an active gauge does nothing.
+      await alice.repo.resumeGauge(id);
+      const still = await waitFor(gaugesOf(alice.repo), (gs) => byId(id)(gs)?.pausedMs !== undefined);
+      expect(byId(id)(still)?.pausedMs).toBe(g.pausedMs);
+    });
+
+    it('counts the paused time one time when two members resume at once', async () => {
+      const { alice, bob, clock, id } = await sharedGauge();
+      const start = Date.now() - 5 * DAY;
+      clock.alice = start;
+      await alice.repo.pauseGauge(id);
+      await waitFor(gaugesOf(bob.repo), (gs) => byId(id)(gs)?.pausedAt === start);
+      const end = Date.now();
+      clock.alice = end;
+      clock.bob = end + 1000;
+      await Promise.all([alice.repo.resumeGauge(id), bob.repo.resumeGauge(id)]);
+      const g = byId(id)(await waitFor(gaugesOf(alice.repo), (gs) => byId(id)(gs)?.pausedMs !== undefined))!;
+      expect(g.pausedAt ?? null).toBeNull();
+      // One of the two resumes wrote. The other one read it and wrote nothing.
+      expect([end - start, end + 1000 - start]).toContain(g.pausedMs);
+    });
+
+    it('ends the pause when a member marks the gauge done, as an earlier app version does', async () => {
+      const { alice, bob, clock, id } = await sharedGauge();
+      clock.alice = Date.now() - 2 * DAY;
+      await alice.repo.pauseGauge(id);
+      clock.alice = Date.now() - DAY;
+      await alice.repo.resumeGauge(id);
+      clock.alice = Date.now() - DAY / 2;
+      await alice.repo.pauseGauge(id);
+      // markDone writes only the execution, the same write as an app that does not know the pause.
+      const doneAt = Date.now();
+      await bob.repo.markDone(id, doneAt);
+      const g = byId(id)(
+        await waitFor(gaugesOf(alice.repo), (gs) => byId(id)(gs)?.executions.length === 2),
+      )!;
+      expect(g.pausedAt).toBeDefined();
+      expect(g.pausedMs).toBeGreaterThan(0);
+      expect(isPaused(g)).toBe(false);
+      // The gauge empties from the new execution. The old paused time does not count.
+      expect(gaugeLevel(g, doneAt + 3.6 * DAY)).toBeCloseTo(90, 3);
+    });
+
+    it('refuses a pause by a user who is not a member', async () => {
+      const { id } = await sharedGauge();
+      const stranger = await newUser();
+      await expect(stranger.repo.pauseGauge(id)).rejects.toMatchObject({ code: 'permission-denied' });
+    });
   });
 
   it('surfaces a write error to the caller', async () => {

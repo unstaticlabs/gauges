@@ -241,11 +241,13 @@ export interface WebRepositoryOptions {
   store?: DeviceStore;
   /** See `WebAuthOptions.idTokenFor`. */
   idTokenFor?: WebAuthOptions['idTokenFor'];
+  /** The clock of the repository. Tests give their own clock. */
+  now?: () => number;
 }
 
 /** Makes a repository on a new Firebase app, or on the app with the same name. */
 export function createWebRepository(options: WebRepositoryOptions = {}): Repository {
-  const { appName = '[DEFAULT]', emulator = null, store = browserDeviceStore, idTokenFor } = options;
+  const { appName = '[DEFAULT]', emulator = null, store = browserDeviceStore, idTokenFor, now } = options;
   const existing = getApps().find((a) => a.name === appName);
   const config = emulator ? { ...firebaseWebConfig, projectId: EMULATOR_PROJECT_ID } : firebaseWebConfig;
   const app: FirebaseApp = existing ?? initializeApp(config, appName);
@@ -261,6 +263,7 @@ export function createWebRepository(options: WebRepositoryOptions = {}): Reposit
     auth: webAuthPort(auth, { allowAnonymous: emulator !== null, idTokenFor }),
     store,
     randomBytes,
+    now,
   };
   return createFirestoreRepository(platform);
 }
