@@ -65,7 +65,7 @@ function ModeDrawing({ bars, result }: Drawing) {
 }
 
 export interface LevelModePickerProps {
-  /** The levels of the active gauges of the label, in any order. */
+  /** The levels of the gauges that count for the label (not archived, not paused), in any order. */
   levels: readonly number[];
   value: LabelAggregate;
   onChange: (mode: LabelAggregate) => void;

@@ -8,6 +8,7 @@ import {
   gaugesOfLabel,
   gaugesWithoutLabel,
   type Gauge as GaugeData,
+  isPaused,
   type Label,
   labelAvatarOrder,
   labelAggregate,
@@ -166,6 +167,9 @@ function GaugesPage({ gauges, level, members, emptyTitle, emptyBody, labelId, le
   const insets = useSafeAreaInsets();
   const now = useNow();
   const rows = useMemo(() => gauges.map((gauge) => ({ gauge, level: gaugeLevel(gauge, now) })), [gauges, now]);
+  const pausedCount = useMemo(() => gauges.filter(isPaused).length, [gauges]);
+  const allPaused = gauges.length > 0 && pausedCount === gauges.length;
+  const countText = gauges.length === 0 ? t.labels.noGauges : t.labels.gaugeCount(gauges.length);
   const page = { paddingLeft: insets.left + spacing.page, paddingRight: insets.right + spacing.page };
   // An open row closes when the user leaves the screen.
   useFocusEffect(useCallback(() => () => closeOpenRow(), []));
@@ -182,14 +186,24 @@ function GaugesPage({ gauges, level, members, emptyTitle, emptyBody, labelId, le
       <View style={[styles.column, { gap: spacing.lg }]}>
         <View style={[page, { gap: spacing.sm }]}>
           <View style={[styles.summaryLine, { gap: spacing.sm }]}>
-            <Text style={[typography.callout, styles.flex, { color: colors.textMuted }]}>
-              {gauges.length === 0 ? t.labels.noGauges : t.labels.gaugeCount(gauges.length)}
+            <Text style={[typography.callout, styles.flex, { color: colors.textMuted }]} testID="label-summary">
+              {allPaused
+                ? `${t.labels.allPaused} · ${countText}`
+                : pausedCount > 0
+                  ? `${countText} · ${t.labels.pausedCount(pausedCount)}`
+                  : countText}
             </Text>
             {members.length > 0 ? (
               <MemberAvatars ids={members} size={26} ringColor={colors.background} testID="label-avatars" />
             ) : null}
           </View>
-          <Gauge level={level ?? 0} height={18} />
+          {/* With all gauges paused, the label has no level: a full grey bar. */}
+          <Gauge
+            level={allPaused ? 100 : (level ?? 0)}
+            paused={allPaused}
+            height={18}
+            accessibilityLabel={allPaused ? t.labels.allPaused : undefined}
+          />
           {levelLine && onLevelLine ? (
             <Pressable
               accessibilityRole="button"

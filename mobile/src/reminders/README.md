@@ -27,7 +27,8 @@ text comes from `src/i18n/reminders.ts` and `t.reminders`.
 
 1. `planReminders` (in `src/domain`) gives the days in the next 14 days
    that have a red gauge at the reminder time. It leaves out archived
-   gauges, gauges that the user muted, and gauges of other users.
+   gauges, paused gauges, gauges that the user muted, and gauges of other
+   users.
 2. Each day becomes one request with the ID `gauges.reminder.<time>`.
 3. `reconcile` reads the pending requests of the app (only the IDs with
    that prefix). It cancels each one that is not in the plan or has another
@@ -89,7 +90,7 @@ granted" is `denied`, because the user answered the prompt.
   because a daily summary does not need one, and Google Play restricts the
   permission. Android can move the time a little.
 - While the app is open, a reminder shows only if one of its gauges is still
-  red in the live data.
+  red and not paused in the live data.
 - A tap on a reminder opens the app on the home screen.
 
 ## Known limit: shared gauges

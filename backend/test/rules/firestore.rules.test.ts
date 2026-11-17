@@ -742,6 +742,147 @@ describe('invites (point 6)', () => {
   });
 });
 
+describe('gauge pause', () => {
+  const DAY = 86400000;
+  const ago = (days: number) => Timestamp.fromMillis(Date.now() - days * DAY);
+  const PAUSE = { pausedAt: ago(1), pausedMs: 2 * DAY, pausedMsSince: ago(5) };
+
+  /** Puts g1 on L2, so that alice and dave share it. */
+  async function shareG1WithDave(): Promise<void> {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc('gauges/g1').update({ labelIds: ['L1', 'L2'], members: ['alice', 'dave'] });
+      await ctx.firestore().doc('labels/L2').update({ gaugeIds: ['g1'] });
+    });
+  }
+
+  it('lets each member pause and resume', async () => {
+    await shareG1WithDave();
+    await assertSucceeds(db('dave').doc('gauges/g1').update({ pausedAt: now() }));
+    await assertSucceeds(
+      db('alice').doc('gauges/g1').update({ pausedAt: null, pausedMs: 3 * DAY, pausedMsSince: ago(4) }),
+    );
+    await assertSucceeds(db('alice').doc('gauges/g1').update({ pausedAt: now() }));
+    await assertSucceeds(db('dave').doc('gauges/g1').update({ pausedAt: null, pausedMs: 0, pausedMsSince: null }));
+    // A transaction of the app writes the whole document.
+    const g = (await assertSucceeds(db('alice').doc('gauges/g1').get())).data()!;
+    await assertSucceeds(db('alice').doc('gauges/g1').set({ ...g, pausedAt: now() }));
+  });
+
+  it('denies invalid values', async () => {
+    const d = db('alice').doc('gauges/g1');
+    for (const value of ['yesterday', 12, true, {}]) {
+      await assertFails(d.update({ pausedAt: value }));
+      await assertFails(d.update({ pausedMsSince: value }));
+    }
+    for (const value of [-1, 630720000001, '5', null, now()]) {
+      await assertFails(d.update({ pausedMs: value }));
+    }
+    await assertSucceeds(d.update({ pausedMs: 630720000000 }));
+  });
+
+  it('denies a stranger', async () => {
+    await assertFails(db('bob').doc('gauges/g1').update({ pausedAt: now() }));
+  });
+
+  it('denies a new gauge with a pause field', async () => {
+    for (const field of Object.entries(PAUSE)) {
+      await assertFails(db('bob').collection('gauges').doc().set(gaugeData('bob', Object.fromEntries([field]))));
+    }
+    await assertFails(db('bob').collection('gauges').doc().set(gaugeData('bob', { pausedAt: null })));
+  });
+
+  it('denies a self-join that also changes the pause', async () => {
+    await bobJoinsL1();
+    await assertFails(
+      db('bob').doc('gauges/g1').update({ members: FieldValue.arrayUnion('bob'), joinVia: 'L1', pausedAt: now() }),
+    );
+  });
+
+  // An app that does not know the fields writes only the fields that it
+  // changes. The rules check the whole document after the write, so each of
+  // these writes must pass on a gauge that has the fields.
+  describe('writes of an app that does not know the fields', () => {
+    beforeEach(async () => {
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().doc('gauges/g1').update({ ...PAUSE, executions: [{ at: ago(5), by: 'alice' }] });
+      });
+    });
+
+    it('marks done, changes the date of an execution, and removes it', async () => {
+      const d = db('alice').doc('gauges/g1');
+      const doneAt = now();
+      await assertSucceeds(d.update({ executions: FieldValue.arrayUnion({ at: doneAt, by: 'alice' }) }));
+      await assertSucceeds(
+        d.update({ executions: [{ at: ago(5), by: 'alice' }, { at: ago(0.5), by: 'alice' }] }),
+      );
+      await assertSucceeds(d.update({ executions: FieldValue.arrayRemove({ at: ago(5), by: 'alice' }) }));
+      const g = (await assertSucceeds(d.get())).data();
+      expect(g).toMatchObject({ pausedMs: 2 * DAY });
+    });
+
+    it('renames, and changes the interval and the curve', async () => {
+      const d = db('alice').doc('gauges/g1');
+      await assertSucceeds(d.update({ name: 'Fertilize' }));
+      await assertSucceeds(d.update({ repeatDays: 30, curve: 'late' }));
+    });
+
+    it('adds a label with its members and removes it, in batches', async () => {
+      const d = db('alice');
+      const add = d.batch();
+      add.update(d.doc('gauges/g1'), {
+        labelIds: FieldValue.arrayUnion('L2'),
+        members: FieldValue.arrayUnion('alice', 'dave'),
+        joinVia: 'L2',
+      });
+      add.update(d.doc('labels/L2'), { gaugeIds: FieldValue.arrayUnion('g1') });
+      await assertSucceeds(add.commit());
+      const remove = d.batch();
+      remove.update(d.doc('gauges/g1'), {
+        labelIds: FieldValue.arrayRemove('L2'),
+        members: FieldValue.arrayRemove('dave'),
+        mutedBy: FieldValue.arrayRemove('dave'),
+      });
+      remove.update(d.doc('labels/L2'), { gaugeIds: FieldValue.arrayRemove('g1') });
+      await assertSucceeds(remove.commit());
+    });
+
+    it('archives, restores, mutes, and unmutes', async () => {
+      const d = db('alice').doc('gauges/g1');
+      await assertSucceeds(d.update({ archivedAt: now() }));
+      await assertSucceeds(d.update({ archivedAt: null }));
+      await assertSucceeds(d.update({ mutedBy: FieldValue.arrayUnion('alice') }));
+      await assertSucceeds(d.update({ mutedBy: FieldValue.arrayRemove('alice') }));
+    });
+
+    it('joins the gauge through a label, marks it done, then leaves', async () => {
+      await bobJoinsL1();
+      const d = db('bob');
+      await assertSucceeds(d.doc('gauges/g1').update({ members: FieldValue.arrayUnion('bob'), joinVia: 'L1' }));
+      await assertSucceeds(d.doc('gauges/g1').update({ executions: FieldValue.arrayUnion({ at: now(), by: 'bob' }) }));
+      const leave = d.batch();
+      leave.update(d.doc('labels/L1'), { members: FieldValue.arrayRemove('bob') });
+      leave.update(d.doc('gauges/g1'), {
+        members: FieldValue.arrayRemove('bob'),
+        mutedBy: FieldValue.arrayRemove('bob'),
+      });
+      await assertSucceeds(leave.commit());
+    });
+
+    it('deletes the label of the gauge, then the gauge', async () => {
+      const d = db('alice');
+      const batch = d.batch();
+      batch.update(d.doc('gauges/g1'), { labelIds: FieldValue.arrayRemove('L1') });
+      batch.delete(d.doc('labels/L1'));
+      await assertSucceeds(batch.commit());
+      await assertSucceeds(d.doc('gauges/g1').delete());
+    });
+
+    it('still denies a stranger', async () => {
+      await assertFails(db('bob').doc('gauges/g1').update({ executions: FieldValue.arrayUnion({ at: now(), by: 'bob' }) }));
+    });
+  });
+});
+
 describe('everything else (point 8)', () => {
   it('denies the paths outside the data model, also to the creator', async () => {
     await assertFails(db('alice').doc('groups/x1').get());

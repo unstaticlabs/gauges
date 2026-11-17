@@ -11,6 +11,7 @@ import type {
 } from '../domain/types';
 import { singleEmoji } from '../domain/emoji';
 import { LABEL_AGGREGATES } from '../domain/label';
+import { PAUSED_MS_MAX, type PauseChanges, type ResumeChanges } from '../domain/pause';
 import type { DocData } from './port';
 import { DataError, type GaugeChanges, type NewGauge } from './repository';
 
@@ -75,7 +76,7 @@ function readCurve(value: unknown): Curve {
 }
 
 export function gaugeFromDoc(id: GaugeId, data: DocData): Gauge {
-  return {
+  const gauge: Gauge = {
     id,
     name: typeof data.name === 'string' ? data.name : '',
     repeatDays: typeof data.repeatDays === 'number' ? data.repeatDays : 1,
@@ -88,6 +89,17 @@ export function gaugeFromDoc(id: GaugeId, data: DocData): Gauge {
     mutedBy: readStrings(data.mutedBy),
     createdAt: readTime(data.createdAt) ?? 0,
   };
+  // The pause fields are optional (see `src/domain/pause.ts`). A gauge of an
+  // earlier version of the app has none. A missing or invalid value gives
+  // no pause and no paused time.
+  const pausedAt = readTime(data.pausedAt);
+  if (pausedAt !== null && Number.isFinite(pausedAt)) gauge.pausedAt = pausedAt;
+  if (typeof data.pausedMs === 'number' && Number.isFinite(data.pausedMs) && data.pausedMs > 0) {
+    gauge.pausedMs = Math.min(data.pausedMs, PAUSED_MS_MAX);
+  }
+  const pausedMsSince = readTime(data.pausedMsSince);
+  if (pausedMsSince !== null && Number.isFinite(pausedMsSince)) gauge.pausedMsSince = pausedMsSince;
+  return gauge;
 }
 
 export function labelFromDoc(id: LabelId, data: DocData): Label {
@@ -116,6 +128,16 @@ export function profileFromDoc(id: UserId, data: DocData): UserProfile {
 
 export function executionToDoc(execution: Execution, ts: ToTimestamp): DocData {
   return { at: ts(execution.at), by: execution.by };
+}
+
+/** Converts the fields of a pause or a resume to the fields of the document. */
+export function pauseToDoc(changes: PauseChanges | ResumeChanges, ts: ToTimestamp): DocData {
+  if (changes.pausedAt !== null) return { pausedAt: ts(changes.pausedAt) };
+  return {
+    pausedAt: null,
+    pausedMs: changes.pausedMs,
+    pausedMsSince: changes.pausedMsSince === null ? null : ts(changes.pausedMsSince),
+  };
 }
 
 // --- Validation -----------------------------------------------------------

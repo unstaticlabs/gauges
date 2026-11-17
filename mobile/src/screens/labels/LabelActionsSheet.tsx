@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { getRepository, NAME_MAX_LENGTH } from '@/data';
-import { gaugeLevel, gaugesOfLabel, type Label, type LabelAggregate, labelAggregate, labelEmoji } from '@/domain';
+import { countedLevels, gaugesOfLabel, type Label, type LabelAggregate, labelAggregate, labelEmoji } from '@/domain';
 import { errorMessage, t } from '@/i18n';
 import { useGauges, useNow, useSession, useToast } from '@/state';
 import { Button, EmojiPicker, Segmented, Sheet, TextField } from '@/ui/components';
@@ -43,7 +43,8 @@ export function LabelActionsSheet({ label, visible, onClose, onGone, initialTab 
   const [emoji, setEmoji] = useState<string | null>(label.emoji ?? null);
   const [aggregate, setAggregate] = useState<LabelAggregate>(labelAggregate(label));
   const levels = useMemo(
-    () => gaugesOfLabel(label.id, gauges.items, now).map((gauge) => gaugeLevel(gauge, now)),
+    // Paused gauges do not count in the level, so the preview leaves them out.
+    () => countedLevels(gaugesOfLabel(label.id, gauges.items, now), now),
     [label.id, gauges.items, now],
   );
   const [busy, setBusy] = useState(false);

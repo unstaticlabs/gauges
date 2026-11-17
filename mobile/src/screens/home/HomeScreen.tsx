@@ -10,11 +10,12 @@ import {
   gaugesWithoutLabel,
   type Gauge,
   groupByLabel,
-  isRed,
+  isPaused,
   labelAvatarOrder,
   labelEmoji,
   labelLevel,
   type LabelGroup,
+  lowCount,
   NO_LABEL_EMOJI,
   rateGauge,
   searchGauges,
@@ -40,7 +41,7 @@ const MAX_WIDTH = 640;
 
 type Row = { gauge: Gauge; level: number };
 
-/** Gives the active gauges as rows, the worst first, filtered by the query. */
+/** Gives the active gauges as rows, the worst first and the paused gauges last, filtered by the query. */
 function rowsFor(gauges: readonly Gauge[], now: number, query: string): Row[] {
   const rated = activeGauges(gauges).map((gauge) => rateGauge(gauge, now));
   rated.sort(compareRated);
@@ -74,7 +75,8 @@ export function HomeScreen() {
 
   const rows = useMemo(() => rowsFor(gauges.items, now, query), [gauges.items, now, query]);
   const allRows = useMemo(() => rowsFor(gauges.items, now, ''), [gauges.items, now]);
-  const low = useMemo(() => allRows.filter((r) => isRed(r.level)).length, [allRows]);
+  // The greeting counts the red gauges. Paused gauges do not count.
+  const low = useMemo(() => lowCount(gauges.items, now), [gauges.items, now]);
 
   const addGauge = useCallback(() => router.push('/gauge/new'), [router]);
   const openSettings = useCallback(() => router.push('/settings'), [router]);
@@ -215,6 +217,7 @@ function LabelView({ query, rows, now, onShowAll }: LabelViewProps) {
             emoji={NO_LABEL_EMOJI}
             level={labelLevel(unlabeled, now)}
             count={unlabeled.length}
+            pausedCount={unlabeled.filter(isPaused).length}
             members={[]}
             muted
             onPress={() => router.push('/unlabeled')}
@@ -267,6 +270,7 @@ function GroupCard({ group, onOpen }: { group: LabelGroup; onOpen: () => void })
       emoji={labelEmoji(group.label)}
       level={group.level}
       count={group.gauges.length}
+      pausedCount={group.pausedCount}
       members={members}
       onPress={onOpen}
       testID={`label-card-${group.label.name}`}

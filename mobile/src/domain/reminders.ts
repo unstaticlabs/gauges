@@ -1,4 +1,5 @@
 import type { Gauge, GaugeId, UserId } from './types';
+import { isPaused } from './pause';
 import { compareRated, rateGauge } from './sort';
 import { isRed } from './tone';
 
@@ -56,8 +57,8 @@ export function reminderTimes(now: number, timeOfDay: TimeOfDay, days: number): 
  * Plans the reminders for one user. For each reminder time, the plan lists
  * the active gauges that are red at that time, in the order of the home
  * list (the worst first). It assumes that nobody does
- * an execution before then. Gauges that the user muted, and gauges that the
- * user is not a member of, do not count. The result holds only the times
+ * an execution before then. Gauges that the user muted, gauges that the
+ * user is not a member of, and paused gauges do not count. The result holds only the times
  * with one or more gauges.
  */
 export function planReminders({
@@ -70,6 +71,7 @@ export function planReminders({
   const candidates = gauges.filter(
     (gauge) =>
       gauge.archivedAt === null &&
+      !isPaused(gauge) &&
       gauge.members.includes(userId) &&
       !gauge.mutedBy.includes(userId),
   );

@@ -1,4 +1,5 @@
 import type { Curve, Execution, Gauge } from './types';
+import { activeElapsedMs, type PauseInput } from './pause';
 import { clampLevel } from './tone';
 
 /** The length of one day in milliseconds. */
@@ -81,15 +82,14 @@ export function lastExecutionAt(gauge: Pick<Gauge, 'executions'>): number {
 /**
  * Returns the level of a gauge at the time `now`, from 0 (empty) to 100
  * (full). The result is not rounded. A gauge with no execution has level 0.
+ * A paused gauge keeps the level of the start of its pause, and the paused
+ * time does not count after a resume (see `pause.ts`).
  */
-export function gaugeLevel(
-  gauge: Pick<Gauge, 'executions' | 'repeatDays' | 'curve'>,
-  now: number,
-): number {
-  const last = lastExecution(gauge.executions);
-  if (last === null) return 0;
+export function gaugeLevel(gauge: Pick<Gauge, 'repeatDays' | 'curve'> & PauseInput, now: number): number {
+  const elapsed = activeElapsedMs(gauge, now);
+  if (elapsed === null) return 0;
   const emptyAfterMs = Math.max(1, gauge.repeatDays) * EMPTY_AFTER_FACTOR * DAY_MS;
-  const x = clamp01((now - last.at) / emptyAfterMs);
+  const x = clamp01(elapsed / emptyAfterMs);
   return 100 * curveFill(gauge.curve, x);
 }
 

@@ -17,6 +17,7 @@ export {
   DEFAULT_LABEL_AGGREGATE,
   LABEL_AGGREGATES,
   aggregateLevels,
+  countedLevels,
   countedRange,
   labelAggregate,
   labelLevel,
@@ -34,12 +35,25 @@ export {
   activeGauges,
   archivedGauges,
   compareRated,
+  lowCount,
   rateGauge,
   sortGaugesForHome,
   splitByArchive,
   type RatedGauge,
 } from './sort';
 export { normalizeForSearch, searchGauges } from './search';
+export {
+  PAUSED_MS_MAX,
+  activeElapsedMs,
+  countedPausedMs,
+  isPaused,
+  pauseChanges,
+  pausedSince,
+  resumeChanges,
+  type PauseChanges,
+  type PauseInput,
+  type ResumeChanges,
+} from './pause';
 export {
   DEFAULT_LABEL_EMOJI,
   EMOJI_MAX_LENGTH,

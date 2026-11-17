@@ -22,7 +22,9 @@ export type IconName =
   | 'refresh'
   | 'repeat'
   | 'arrowRight'
-  | 'more';
+  | 'more'
+  | 'pause'
+  | 'play';
 
 export interface IconProps {
   name: IconName;
@@ -106,6 +108,8 @@ export function Icon({ name, color, size = 24, strokeWidth = 2 }: IconProps) {
       {name === 'refresh' && <Path d="M20 11a8 8 0 10-2.3 5.7M20 4v7h-7" {...stroke} />}
       {name === 'arrowRight' && <Path d="M4 12h15M13 6l6 6-6 6" {...stroke} />}
       {name === 'more' && <Path d="M5 12h.01M12 12h.01M19 12h.01" {...stroke} strokeWidth={strokeWidth + 1.5} />}
+      {name === 'pause' && <Path d="M9 5v14M15 5v14" {...stroke} strokeWidth={strokeWidth + 0.5} />}
+      {name === 'play' && <Path d="M8 5.5v13l10.5-6.5L8 5.5z" {...stroke} />}
       {name === 'repeat' && <Path d="M17 3l3 3-3 3M4 11V9a3 3 0 013-3h13M7 21l-3-3 3-3M20 13v2a3 3 0 01-3 3H4" {...stroke} />}
     </Svg>
   );

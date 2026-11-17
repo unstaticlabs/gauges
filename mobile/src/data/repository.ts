@@ -252,6 +252,19 @@ export interface Repository {
   removeExecution(gaugeId: GaugeId, execution: Execution): Promise<void>;
   /** Mutes or unmutes the reminders of one gauge for the current user. */
   setMuted(gaugeId: GaugeId, muted: boolean): Promise<void>;
+  /**
+   * Pauses the gauge for all members: its level stops (see
+   * `src/domain/pause.ts`). It does nothing when the gauge is paused
+   * already. It is a transaction, so it needs a connection.
+   */
+  pauseGauge(gaugeId: GaugeId): Promise<void>;
+  /**
+   * Resumes a paused gauge for all members. The gauge empties again from
+   * its level at the start of the pause. It does nothing when the gauge is
+   * not paused. It is a transaction: when two devices resume at once, the
+   * paused time counts one time.
+   */
+  resumeGauge(gaugeId: GaugeId): Promise<void>;
 
   // --- Labels -------------------------------------------------------------
 

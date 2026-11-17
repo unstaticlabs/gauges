@@ -19,7 +19,7 @@ renders one screen from here.
 ## Home and the gauge page
 
 - The greeting states a fact: "Hey Sam, 2 gauges are low." A low gauge is
-  red. The name opens Settings. With no name, the line starts with the
+  red. A paused gauge does not count. The name opens Settings. With no name, the line starts with the
   number.
 - At the top right: the switch "All gauges / By label" and Settings. The
   search opens from the icon at the top left. The search field takes the
@@ -55,14 +55,26 @@ renders one screen from here.
   row has `touch-action: pan-y`, so that the browser scrolls the page. The
   gesture config sets it, because in gesture-handler 3.3 the detector
   prop alone gets lost on the web.
-- Screen readers get the actions "Mark as done", "Edit", "Archive", and
-  "Delete" on each row. The website also shows a small "⋯" button at the
-  end of the bar of each row, for a mouse and a keyboard. It opens a menu
-  with the same four actions. It shows on all screen sizes of the website,
-  because a phone browser has no screen reader actions either.
+- Screen readers get the actions "Mark as done", "Pause", "Edit",
+  "Archive", and "Delete" on each row. The website also shows a small "⋯"
+  button at the end of the bar of each row, for a mouse and a keyboard. It
+  opens a menu with the same actions. It shows on all screen sizes of the
+  website, because a phone browser has no screen reader actions either.
+- A paused gauge (`src/domain/pause.ts`) stays in the lists, after all
+  active gauges, under the heading "Paused", by name. Its row is grey: a
+  grey bar at its frozen level, a muted name, and "Paused since 3 Oct" (a
+  date in the format of the device) in place of "Done … ago". It has no
+  "Done": the short swipe to the right shows "Resume", and the full swipe
+  resumes the gauge. Edit, Archive, and Delete stay. Its screen reader
+  actions and its "⋯" menu have "Resume" in place of "Mark as done" and
+  "Pause". The swipe to the left has no "Pause": a fourth button does not
+  fit at a width of 320 points (4 × 76 points, and the full swipe needs
+  more than the width of the row). Pause is on the gauge page, in the
+  "⋯" menu, and in the screen reader actions.
 - Until the first swipe on the device, a line above the home list explains
-  both directions, and the first row opens a little to the right, then to
-  the left, one time in each app start (`STORAGE_KEYS.swipeLearned`). The
+  both directions, and the first active row opens a little to the right,
+  then to the left, one time in each app start
+  (`STORAGE_KEYS.swipeLearned`). The hint never plays on a paused row. The
   label page has no hint line.
 - With no active gauge, the home screen offers "Add your first gauge". A
   user with no login (on the phone) also gets the Google and Apple buttons
@@ -73,8 +85,11 @@ renders one screen from here.
   (`reuseUnchanged`). A memoized row then renders again only when it
   changes, not on each tick of the clock or on each snapshot.
 - The gauge page has the state (the same bar as the rows), the settings of
-  the gauge, the switch "Remind me about this gauge", the history (the 5
-  most recent executions, and "I did it on…"), then Archive and Delete. It
+  the gauge, the switch "Remind me about this gauge", "Pause" or "Resume"
+  with one line of help, the history (the 5 most recent executions, and
+  "I did it on…"), then Archive and Delete. A pause is for all members, and
+  it needs a connection (a transaction). A paused gauge shows "Paused since
+  …" in place of "Turns red in …". It
   has no "Done" button: the row has the action. Save shows only when there
   is a change. A press on an execution opens a sheet to change its time or
   to remove it.
@@ -101,7 +116,10 @@ renders one screen from here.
 - A label row shows the emoji of the label, the aggregated level
   (`labelLevel` in the mode of the label), the number of active gauges, and
   the avatars when the label has more than one member. The worst label
-  comes first. The gauges
+  comes first. Paused gauges do not count in the level, and the row adds
+  "· 2 paused". A label whose gauges are all paused has a full grey bar
+  and "All paused", and comes after the labels with a level. The label page
+  shows the same. The gauges
   with no label of the user get a last row, "No label", with 📋. It is
   hidden when it is empty.
 - Each label has an emoji. A new label gets an emoji from its name when a

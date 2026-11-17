@@ -1,5 +1,5 @@
 import { DataError } from '../repository';
-import { checkAggregate, gaugeFromDoc, labelFromDoc, newGaugeDoc, readTime } from '../mapping';
+import { checkAggregate, gaugeFromDoc, labelFromDoc, newGaugeDoc, pauseToDoc, readTime } from '../mapping';
 
 const ts = (ms: number) => ({ toMillis: () => ms });
 
@@ -31,6 +31,32 @@ describe('mapping', () => {
       mutedBy: ['bob'],
       createdAt: 500,
     });
+  });
+
+  it('reads the pause fields, and ignores missing and invalid values', () => {
+    const base = { name: 'Fertilize', executions: [{ at: ts(1000), by: 'bob' }] };
+    expect(gaugeFromDoc('g1', { ...base, pausedAt: ts(2000), pausedMs: 300, pausedMsSince: ts(1000) })).toMatchObject({
+      pausedAt: 2000,
+      pausedMs: 300,
+      pausedMsSince: 1000,
+    });
+    const missing = gaugeFromDoc('g1', base);
+    expect('pausedAt' in missing || 'pausedMs' in missing || 'pausedMsSince' in missing).toBe(false);
+    const invalid = gaugeFromDoc('g1', { ...base, pausedAt: 'soon', pausedMs: -5, pausedMsSince: {} });
+    expect('pausedAt' in invalid || 'pausedMs' in invalid || 'pausedMsSince' in invalid).toBe(false);
+    expect(gaugeFromDoc('g1', { ...base, pausedAt: null, pausedMs: '5', pausedMsSince: null })).not.toHaveProperty('pausedMs');
+    expect(gaugeFromDoc('g1', { ...base, pausedMs: Number.POSITIVE_INFINITY })).not.toHaveProperty('pausedMs');
+  });
+
+  it('writes a pause and a resume with timestamps', () => {
+    const stamp = (ms: number) => `ts:${ms}`;
+    expect(pauseToDoc({ pausedAt: 5 }, stamp)).toEqual({ pausedAt: 'ts:5' });
+    expect(pauseToDoc({ pausedAt: null, pausedMs: 7, pausedMsSince: 3 }, stamp)).toEqual({
+      pausedAt: null,
+      pausedMs: 7,
+      pausedMsSince: 'ts:3',
+    });
+    expect(pauseToDoc({ pausedAt: null, pausedMs: 7, pausedMsSince: null }, stamp)).toMatchObject({ pausedMsSince: null });
   });
 
   it('gives defaults for missing fields', () => {

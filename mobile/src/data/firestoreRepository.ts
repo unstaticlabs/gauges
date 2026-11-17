@@ -1,5 +1,6 @@
 import type { Execution, Gauge, GaugeId, Label, LabelId, UserId } from '../domain/types';
 import { changeExecutionDate, FutureExecutionError } from '../domain/executions';
+import { pauseChanges, resumeChanges } from '../domain/pause';
 import { createAccountOps } from './account';
 import { buildInviteUrl, INVITE_CODE_BYTES, isValidInviteCode, toBase64Url } from './invite';
 import {
@@ -17,6 +18,7 @@ import {
   labelPath,
   newGaugeDoc,
   newLabelDoc,
+  pauseToDoc,
   profileFromDoc,
   userPath,
 } from './mapping';
@@ -161,6 +163,25 @@ export function createFirestoreRepository(platform: Platform): Repository {
       }
       throw error;
     }
+  }
+
+  /**
+   * Pauses or resumes a gauge in a transaction. The transaction reads the
+   * current gauge, so a pause of a paused gauge and a resume of an active
+   * gauge write nothing. When two devices resume at once, the second one
+   * reads the first resume and writes nothing, so the paused time counts
+   * one time.
+   */
+  async function changePause(
+    id: GaugeId,
+    changes: (gauge: Gauge, now: number) => Parameters<typeof pauseToDoc>[0] | null,
+  ): Promise<void> {
+    await fs.runTransaction(async (tx) => {
+      const data = await tx.get(gaugePath(id));
+      if (!data) throw new DataError('not-found', 'The gauge does not exist.');
+      const next = changes(gaugeFromDoc(id, data), now());
+      if (next) tx.update(gaugePath(id), pauseToDoc(next, fs.timestamp));
+    });
   }
 
   async function getGauge(id: GaugeId): Promise<Gauge> {
@@ -409,6 +430,18 @@ export function createFirestoreRepository(platform: Platform): Repository {
       guard(async () => {
         requireUser();
         await fs.commit(planRemoveExecution(gaugeId, execution, fs));
+      }),
+
+    pauseGauge: (gaugeId) =>
+      guard(async () => {
+        requireUser();
+        await changePause(gaugeId, pauseChanges);
+      }),
+
+    resumeGauge: (gaugeId) =>
+      guard(async () => {
+        requireUser();
+        await changePause(gaugeId, resumeChanges);
       }),
 
     setMuted: (gaugeId, muted) =>

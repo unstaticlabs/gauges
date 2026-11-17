@@ -1,5 +1,6 @@
 import type { Gauge, Label, LabelAggregate } from './types';
 import { gaugeLevel } from './level';
+import { isPaused, type PauseInput } from './pause';
 
 /** The modes of a label level, in the order of the picker. */
 export const LABEL_AGGREGATES: readonly LabelAggregate[] = ['worst', 'lowerHalf', 'median', 'average'];
@@ -82,18 +83,29 @@ export function previewPositions(count: number, room: number): number[] {
   return [...picked].sort((a, b) => a - b);
 }
 
+/** The fields of a gauge that the level of a label reads. */
+export type LabelLevelInput = Pick<Gauge, 'repeatDays' | 'curve' | 'archivedAt'> & PauseInput;
+
+/**
+ * Gives the levels of the gauges that count for the level of a label, in
+ * the same order: archived and paused gauges do not count.
+ */
+export function countedLevels(gauges: readonly LabelLevelInput[], now: number): number[] {
+  return gauges
+    .filter((gauge) => gauge.archivedAt === null && !isPaused(gauge))
+    .map((gauge) => gaugeLevel(gauge, now));
+}
+
 /**
  * Returns the level of a label at the time `now`. Give the gauges of the
- * label and the mode of the label. Archived gauges do not count. Returns
- * `null` when no active gauge is left.
+ * label and the mode of the label. Archived and paused gauges do not count.
+ * Returns `null` when no such gauge is left, for example when all gauges
+ * are paused.
  */
 export function labelLevel(
-  gauges: readonly Pick<Gauge, 'executions' | 'repeatDays' | 'curve' | 'archivedAt'>[],
+  gauges: readonly LabelLevelInput[],
   now: number,
   mode: LabelAggregate = DEFAULT_LABEL_AGGREGATE,
 ): number | null {
-  const levels = gauges
-    .filter((gauge) => gauge.archivedAt === null)
-    .map((gauge) => gaugeLevel(gauge, now));
-  return aggregateLevels(levels, mode);
+  return aggregateLevels(countedLevels(gauges, now), mode);
 }

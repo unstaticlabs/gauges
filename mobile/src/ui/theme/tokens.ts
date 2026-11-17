@@ -96,6 +96,11 @@ export interface ThemeColors {
   overlay: string;
   /** The empty part of a gauge bar. */
   gaugeTrack: string;
+  /**
+   * The fill of the bar of a paused gauge: a neutral grey with a contrast of
+   * 3:1 or more on `gaugeTrack`. The text of the row also says "Paused".
+   */
+  gaugePaused: string;
   /** The text on the green panel of a swipe. The old white text fails the contrast check. */
   textOnGreen: string;
   gauge: typeof gaugeColors;
@@ -120,6 +125,7 @@ const light: ThemeColors = {
   accentOnInverse: '#66B2FF',
   overlay: 'rgba(0, 0, 0, 0.4)',
   gaugeTrack: '#F2F2F2',
+  gaugePaused: '#8A8A8A',
   textOnGreen: '#0B3814',
   gauge: gaugeColors,
 };
@@ -141,6 +147,7 @@ const dark: ThemeColors = {
   accentOnInverse: '#0A6FD6',
   overlay: 'rgba(0, 0, 0, 0.6)',
   gaugeTrack: '#262628',
+  gaugePaused: '#77777C',
   textOnGreen: '#0B3814',
   gauge: gaugeColors,
 };

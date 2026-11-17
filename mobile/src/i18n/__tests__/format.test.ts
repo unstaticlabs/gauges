@@ -6,6 +6,7 @@ import {
   formatDateTime,
   formatLastDone,
   formatRelative,
+  formatShortDate,
   fromLocalInputValue,
   makeRelativeFormatter,
   relativeParts,
@@ -52,6 +53,26 @@ describe('relativeParts with calendar days', () => {
 
   it('counts calendar days across a change of month', () => {
     expect(calendarDays(new Date(2026, 9, 31, 22).getTime(), new Date(2026, 10, 1, 7).getTime())).toBe(1);
+  });
+});
+
+describe('formatShortDate', () => {
+  const at = new Date(2026, 9, 3, 18, 5).getTime();
+
+  it('gives the day and the month in the order of the region', () => {
+    expect(formatShortDate(at, { tag: 'en-FR' }, at)).toBe('3 Oct');
+    expect(formatShortDate(at, { tag: 'en-US' }, at)).toBe('Oct 3');
+  });
+
+  it('adds the year for a date in another year', () => {
+    expect(formatShortDate(at, { tag: 'en-FR' }, new Date(2027, 0, 5).getTime())).toBe('3 Oct 2026');
+  });
+});
+
+describe('errorMessage for a pause', () => {
+  it('says that a pause needs a connection', () => {
+    expect(errorMessage({ code: 'unavailable' }, en, { transaction: 'pause' })).toBe(en.errors.offlinePause);
+    expect(errorMessage({ code: 'unavailable' }, en, { transaction: true })).toBe(en.errors.offlineTransaction);
   });
 });
 

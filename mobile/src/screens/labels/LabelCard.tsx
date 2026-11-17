@@ -11,9 +11,12 @@ import { MemberAvatars } from './MemberAvatars';
 export interface LabelCardProps {
   name: string;
   emoji: string;
-  /** The aggregated level, or `null` when the label has no active gauge. */
+  /** The aggregated level, or `null` when no gauge counts: no active gauge, or only paused gauges. */
   level: number | null;
+  /** The number of active gauges, the paused ones included. */
   count: number;
+  /** The number of paused gauges in `count`. */
+  pausedCount?: number;
   /** The members in avatar order. The row shows avatars only for more than one. */
   members: readonly UserId[];
   /** The row for gauges with no label has a muted name. */
@@ -31,19 +34,28 @@ export const LabelCard = memo(function LabelCard({
   emoji,
   level,
   count,
+  pausedCount = 0,
   members,
   muted = false,
   onPress,
   testID,
 }: LabelCardProps) {
   const { colors, spacing, typography } = useTheme();
+  const allPaused = count > 0 && pausedCount >= count;
   const countText = count === 0 ? t.labels.noGauges : t.labels.gaugeCount(count);
-  const spokenLevel = level === null ? '' : `, ${displayLevel(level)}%`;
+  // "All paused · 2 gauges", or "3 gauges · 1 paused".
+  const caption = allPaused
+    ? `${t.labels.allPaused} · ${countText}`
+    : pausedCount > 0
+      ? `${countText} · ${t.labels.pausedCount(pausedCount)}`
+      : countText;
+  const spokenLevel = allPaused ? `, ${t.labels.allPaused}` : level === null ? '' : `, ${displayLevel(level)}%`;
+  const spokenPaused = !allPaused && pausedCount > 0 ? `, ${t.labels.pausedCount(pausedCount)}` : '';
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${name}${spokenLevel}, ${countText}`}
+      accessibilityLabel={`${name}${spokenLevel}, ${countText}${spokenPaused}`}
       accessibilityHint={t.labels.cardHint}
       onPress={onPress}
       testID={testID}
@@ -71,8 +83,11 @@ export const LabelCard = memo(function LabelCard({
           {members.length > 1 ? <MemberAvatars ids={members} size={22} ringColor={colors.background} /> : null}
           <Icon name="chevronRight" color={colors.textMuted} size={18} />
         </View>
-        <Gauge level={level ?? 0} />
-        <Text style={[typography.caption, { color: colors.textMuted }]}>{countText}</Text>
+        {/* A label whose gauges are all paused shows a full grey bar, with no level. */}
+        <Gauge level={allPaused ? 100 : (level ?? 0)} paused={allPaused} />
+        <Text style={[typography.caption, { color: colors.textMuted }]} numberOfLines={1}>
+          {caption}
+        </Text>
       </View>
     </Pressable>
   );

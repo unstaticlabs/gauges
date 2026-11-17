@@ -5,15 +5,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getRepository, NAME_MAX_LENGTH } from '@/data';
 import {
+  countedPausedMs,
   DAY_MS,
   type Gauge,
   gaugeLevel,
   isRed,
   lastExecution,
   ORANGE_ABOVE,
+  pausedSince,
   suggestEmoji,
 } from '@/domain';
-import { errorMessage, formatLastDone, relativeFormatter, t } from '@/i18n';
+import { dateLocale, errorMessage, formatLastDone, formatShortDate, relativeFormatter, t } from '@/i18n';
 import { useGauge, useGauges, useLabels, useNow, useReminders, useSession, useToast } from '@/state';
 import { Button, DateTimeField, Gauge as GaugeBar, Icon, SwitchRow, TextField } from '@/ui/components';
 import { confirm, useAndroidKeyboardHeight } from '@/ui/platform';
@@ -280,6 +282,7 @@ function GaugeForm({
               <GaugeSummary gauge={gauge} now={now} />
               {fields}
               <MuteSwitch gauge={gauge} uid={user.uid} />
+              <PauseControl gauge={gauge} />
               <View style={[styles.rule, { backgroundColor: colors.border }]} />
               <HistorySection gauge={gauge} myUid={user.uid} now={now} />
               <View style={[styles.start, { gap: spacing.xs }]}>
@@ -301,19 +304,25 @@ function GaugeForm({
  * the rows of the home list), the last time, the interval, and when it turns
  * red. The page has no "Done" button: the row of the list has the action,
  * also for a screen reader and for a mouse on the website. "I did it on…"
- * in the history adds a past time.
+ * in the history adds a past time. A paused gauge has a grey bar at its
+ * frozen level, and "Paused since …" in place of the time when it turns red.
  */
 function GaugeSummary({ gauge, now }: { gauge: Gauge; now: number }) {
   const { colors, spacing, typography } = useTheme();
   const level = gaugeLevel(gauge, now);
+  const since = pausedSince(gauge);
   const lastAt = lastExecution(gauge.executions)?.at ?? null;
-  const redAt = lastAt === null ? null : lastAt + daysUntilLevel(gauge.curve, gauge.repeatDays, ORANGE_ABOVE) * DAY_MS;
+  // The paused time of earlier pauses moves the red day later.
+  const redAt =
+    lastAt === null
+      ? null
+      : lastAt + countedPausedMs(gauge) + daysUntilLevel(gauge.curve, gauge.repeatDays, ORANGE_ABOVE) * DAY_MS;
   const redInDays = redAt === null ? null : Math.max(0, Math.ceil((redAt - now) / DAY_MS));
 
   return (
     <View style={{ gap: spacing.md }}>
       <View style={{ gap: spacing.sm }}>
-        <GaugeBar level={level} accessibilityLabel={t.gauge.levelLabel} />
+        <GaugeBar level={level} paused={since !== null} accessibilityLabel={t.gauge.levelLabel} />
         <View style={[styles.line, { gap: spacing.sm }]}>
           <Text style={[typography.callout, styles.flex, { color: colors.textMuted }]} testID="gauge-last">
             {formatLastDone(lastAt, now, t, relativeFormatter)}
@@ -321,7 +330,11 @@ function GaugeSummary({ gauge, now }: { gauge: Gauge; now: number }) {
           <Icon name="repeat" color={colors.textMuted} size={15} />
           <Text style={[typography.callout, { color: colors.textMuted }]}>{t.time.every(gauge.repeatDays)}</Text>
         </View>
-        {redInDays !== null && !isRed(level) ? (
+        {since !== null ? (
+          <Text style={[typography.caption, { color: colors.textMuted }]} testID="gauge-paused">
+            {t.home.pausedSince(formatShortDate(since, dateLocale, now))}
+          </Text>
+        ) : redInDays !== null && !isRed(level) ? (
           <Text style={[typography.caption, { color: colors.textMuted }]}>{t.gauge.redIn(redInDays)}</Text>
         ) : null}
       </View>
@@ -346,6 +359,30 @@ function MuteSwitch({ gauge, uid }: { gauge: Gauge; uid: string }) {
       }
       testID="gauge-remind"
     />
+  );
+}
+
+/**
+ * "Pause" for an active gauge, "Resume" for a paused one, with one line of
+ * help. The change is for all members. It needs a connection.
+ */
+function PauseControl({ gauge }: { gauge: Gauge }) {
+  const { colors, spacing, typography } = useTheme();
+  const actions = useGaugeActions();
+  const paused = pausedSince(gauge) !== null;
+  return (
+    <View style={[styles.start, { gap: spacing.xs }]}>
+      <Button
+        label={paused ? t.gauge.resume : t.gauge.pause}
+        icon={paused ? 'play' : 'pause'}
+        variant={paused ? 'primary' : 'secondary'}
+        onPress={() => (paused ? actions.resume(gauge) : actions.pause(gauge))}
+        testID={paused ? 'gauge-resume' : 'gauge-pause'}
+      />
+      <Text style={[typography.caption, { color: colors.textMuted }]}>
+        {paused ? t.gauge.pausedHelp : t.gauge.pauseHelp}
+      </Text>
+    </View>
   );
 }
 

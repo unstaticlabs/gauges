@@ -91,3 +91,31 @@ describe('label names', () => {
     expect(findLabelByName(labels, '')).toBeUndefined();
   });
 });
+
+describe('paused gauges in the groups', () => {
+  const paused = (id: string, level: number, labelIds: string[]) => ({
+    ...gaugeAt(id, level, labelIds),
+    pausedAt: NOW - 1000,
+  });
+
+  it('puts the paused gauges last in a label, by name, and leaves them out of the level', () => {
+    const gauges = [gaugeAt('dishes', 60, ['home']), paused('zinc', 5, ['home']), paused('fertilize', 0, ['home'])];
+    const [home] = groupByLabel([label('home')], gauges, NOW);
+    expect(home.gauges.map((g) => g.id)).toEqual(['dishes', 'fertilize', 'zinc']);
+    expect(home.level).toBeCloseTo(60, 6);
+    expect(home.pausedCount).toBe(2);
+    expect(gaugesOfLabel('home', gauges, NOW).map((g) => g.id)).toEqual(['dishes', 'fertilize', 'zinc']);
+  });
+
+  it('puts a label with only paused gauges after the labels with a level, before the empty labels', () => {
+    const gauges = [gaugeAt('lawn', 90, ['garden']), paused('fertilize', 0, ['winter'])];
+    const groups = groupByLabel([label('empty'), label('winter'), label('garden')], gauges, NOW);
+    expect(groups.map((g) => g.label.id)).toEqual(['garden', 'winter', 'empty']);
+    expect(groups[1]).toMatchObject({ level: null, pausedCount: 1 });
+  });
+
+  it('puts the paused gauges with no label last', () => {
+    const gauges = [paused('a', 0, []), gaugeAt('b', 90, [])];
+    expect(gaugesWithoutLabel([], gauges, NOW).map((g) => g.id)).toEqual(['b', 'a']);
+  });
+});
