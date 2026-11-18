@@ -13,7 +13,7 @@
       "associatedDomains": [
         "applinks:gauges.unstaticlabs.com"
       ],
-      "buildNumber": "20",
+      "buildNumber": "21",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -74,7 +74,7 @@
           ]
         }
       ],
-      "versionCode": 20,
+      "versionCode": 21,
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.READ_EXTERNAL_STORAGE",
