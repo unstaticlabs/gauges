@@ -38,12 +38,12 @@ renders one screen from here.
 - The rows work as in a mail app (`home/swipe.ts`):
   - A short swipe to the right shows a green "Done" button. It stays open
     until a tap. A full swipe to the right marks the gauge done.
-  - A short swipe to the left shows Delete, Pause, and Edit. Delete asks
-    first. Pause shows a toast with "Undo". A full swipe to the left opens
-    the gauge page.
+  - A short swipe to the left shows Pause and Edit. Pause shows a toast
+    with "Undo". A full swipe to the left opens the gauge page.
   - An active gauge has "Pause" and no "Archive", so that a gauge does not
-    leave the lists by mistake. Only a paused gauge has "Archive". The
-    rules are in `home/rowActions.ts`.
+    leave the lists by mistake. Only a paused gauge has "Archive". A row
+    has no "Delete": Delete is on the gauge page only. The rules are in
+    `home/rowActions.ts`.
   - One row is open at a time. A scroll, a tap on a row, or a move to
     another screen closes it (`home/openRow.ts`).
   - A tap on a row does nothing else, and the row has no pressed color.
@@ -58,8 +58,8 @@ renders one screen from here.
   row has `touch-action: pan-y`, so that the browser scrolls the page. The
   gesture config sets it, because in gesture-handler 3.3 the detector
   prop alone gets lost on the web.
-- Screen readers get the actions "Mark as done", "Pause", "Edit", and
-  "Delete" on each active row. The website also shows a small "⋯"
+- Screen readers get the actions "Mark as done", "Pause", and "Edit" on
+  each active row. The website also shows a small "⋯"
   button at the end of the bar of each row, for a mouse and a keyboard. It
   opens a menu with the same actions. It shows on all screen sizes of the
   website, because a phone browser has no screen reader actions either.
@@ -68,9 +68,9 @@ renders one screen from here.
   grey bar at its frozen level, a muted name, and "Paused since 3 Oct" (a
   date in the format of the device) in place of "Done … ago". It has no
   "Done": the short swipe to the right shows "Resume", and the full swipe
-  resumes the gauge. Its swipe to the left shows Delete, Archive, and
-  Edit. Its screen reader actions and its "⋯" menu have "Resume", "Edit",
-  "Archive", and "Delete".
+  resumes the gauge. Its swipe to the left shows Archive and Edit. Its
+  screen reader actions and its "⋯" menu have "Resume", "Edit", and
+  "Archive".
 - Until the first swipe on the device, a line above the home list explains
   both directions, and the first active row opens a little to the right,
   then to the left, one time in each app start
