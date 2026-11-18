@@ -188,8 +188,8 @@ The release builds need the config of your deployment (see "Config").
 The iOS build signs with the Apple account that is logged in to Xcode
 (Xcode > Settings > Accounts). It can sign with an App Store Connect API
 key instead. Then the Mac needs no logged-in account. Create a key in App
-Store Connect (Users and Access > Integrations), keep the
-`AuthKey_<key id>.p8` file outside the repository, and set all three
+Store Connect (Users and Access > Integrations) with the role Admin, keep
+the `AuthKey_<key id>.p8` file outside the repository, and set all three
 values in `.env.local`:
 
 ```sh
@@ -206,6 +206,9 @@ the same key, and prints `UPLOAD OK` or stops with an error and a
 non-zero exit. The upload output goes to `build/upload-<version>-<build>.log`.
 `--upload` without the three values stops before the build. The script
 never prints the key.
+
+The role App Manager is not enough for the key. The export then stops
+with `Cloud signing permission error`.
 
 The version is `expo.version` in `app.json`. The build number is
 `expo.ios.buildNumber` and `expo.android.versionCode`. Each store needs a
