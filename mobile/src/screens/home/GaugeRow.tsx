@@ -23,6 +23,7 @@ import { useTheme } from '@/ui/theme';
 import { MemberAvatars } from '../labels/MemberAvatars';
 import { DoneBurst } from './DoneBurst';
 import { anyRowOpen, closeOpenRow, rowClosed, rowOpened } from './openRow';
+import { type RowAction, rowMenuActions, swipeLeftActions, swipeRightAction } from './rowActions';
 import {
   ACTION_BUTTON_WIDTH,
   DONE_BUTTON_WIDTH,
@@ -45,7 +46,7 @@ const SNAP = { duration: 180 };
  * same in light and dark mode, so that the white text keeps a contrast of
  * 4.5:1 or more.
  */
-const ACTION_COLORS = { delete: '#D92D50', archive: '#6B6B6B', edit: '#0A6FD6' } as const;
+const ACTION_COLORS = { delete: '#D92D50', pause: '#6B6B6B', archive: '#6B6B6B', edit: '#0A6FD6' } as const;
 const IS_WEB = Platform.OS === 'web';
 
 export interface GaugeRowProps {
@@ -68,19 +69,36 @@ export interface GaugeRowProps {
   peek?: boolean;
 }
 
-/** The actions of a row. "Done" and "Pause" are for an active gauge, "Resume" for a paused gauge. */
-type RowAction = 'done' | 'resume' | 'pause' | 'edit' | 'archive' | 'delete';
+/** The label and the icon of each action, for the swipe buttons, the menu, and screen readers. */
+function actionLabel(action: RowAction): string {
+  if (action === 'done') return t.home.markDone;
+  if (action === 'resume') return t.home.resume;
+  if (action === 'pause') return t.home.pause;
+  if (action === 'edit') return t.home.edit;
+  if (action === 'archive') return t.home.archive;
+  return t.home.delete;
+}
+
+const ACTION_ICONS: Record<RowAction, IconName> = {
+  done: 'check',
+  resume: 'play',
+  pause: 'pause',
+  edit: 'edit',
+  archive: 'archive',
+  delete: 'trash',
+};
 
 /**
  * One gauge in a list: the name, the last execution and the interval, then
  * the bar. The swipe works as in a mail app (see `swipe.ts`): to the right
- * for "Done", to the left for Edit, Archive, and Delete. A tap on the row
+ * for "Done", to the left for Edit, Pause, and Delete. A tap on the row
  * does nothing, except that it closes an open row. Screen readers get the
- * same actions on the row, and "Pause". The website also shows a small menu
- * button, for a mouse and a keyboard.
+ * same actions on the row (see `rowActions.ts`). The website also shows a
+ * small menu button, for a mouse and a keyboard.
  *
  * A paused row is grey: a grey bar at its frozen level, a muted name, and
  * "Paused since …". It has no "Done": the swipe to the right resumes it.
+ * Its swipe to the left shows Archive in place of Pause.
  */
 export const GaugeRow = memo(function GaugeRow({
   gauge,
@@ -164,7 +182,7 @@ export const GaugeRow = memo(function GaugeRow({
       else if (event === 'done') {
         // A full swipe to the right: "Done", or "Resume" on a paused row.
         rowClosed(id);
-        current.run(current.paused ? 'resume' : 'done');
+        current.run(swipeRightAction(current.paused));
       } else {
         // A full swipe to the left: the row slides out, the gauge page opens,
         // and the row comes back while the page covers it.
@@ -246,17 +264,7 @@ export const GaugeRow = memo(function GaugeRow({
 
   const frontStyle = useAnimatedStyle(() => ({ transform: [{ translateX: offset.get() }] }));
 
-  const rowActions: { name: RowAction; label: string }[] = paused
-    ? [{ name: 'resume', label: t.home.resume }]
-    : [
-        { name: 'done', label: t.home.markDone },
-        { name: 'pause', label: t.home.pause },
-      ];
-  rowActions.push(
-    { name: 'edit', label: t.home.edit },
-    { name: 'archive', label: t.home.archive },
-    { name: 'delete', label: t.home.delete },
-  );
+  const rowActions = rowMenuActions(paused).map((name) => ({ name, label: actionLabel(name) }));
 
   return (
     <View
@@ -265,8 +273,8 @@ export const GaugeRow = memo(function GaugeRow({
         width.set(event.nativeEvent.layout.width);
       }}
     >
-      <DonePanel offset={offset} resume={paused} onPress={() => run(paused ? 'resume' : 'done')} />
-      <ActionsPanel offset={offset} width={width} onAction={run} />
+      <DonePanel offset={offset} resume={paused} onPress={() => run(swipeRightAction(paused))} />
+      <ActionsPanel offset={offset} width={width} paused={paused} onAction={run} />
       <GestureDetector gesture={pan} touchAction="pan-y">
         <Animated.View style={[styles.front, { backgroundColor: colors.background }, frontStyle]}>
           <GestureDetector gesture={tap} touchAction="pan-y">
@@ -385,19 +393,23 @@ function DonePanel({ offset, resume, onPress }: { offset: SharedValue<number>; r
 }
 
 /**
- * The three buttons behind the row, on the right: Delete, Archive, and
- * Edit. They grow with the swipe. Past the full swipe, Edit takes the whole
- * width, to show that the release opens the gauge page.
+ * The three buttons behind the row, on the right: Delete, Pause, and Edit,
+ * or Delete, Archive, and Edit on a paused row. They grow with the swipe.
+ * Past the full swipe, Edit takes the whole width, to show that the
+ * release opens the gauge page.
  */
 function ActionsPanel({
   offset,
   width,
+  paused,
   onAction,
 }: {
   offset: SharedValue<number>;
   width: SharedValue<number>;
-  onAction: (action: 'edit' | 'archive' | 'delete') => void;
+  paused: boolean;
+  onAction: (action: RowAction) => void;
 }) {
+  const [, middle] = swipeLeftActions(paused);
   const full = useDerivedValue(() =>
     withTiming(-offset.get() >= fullSwipeDistance(width.get(), 'left') ? 1 : 0, { duration: 140 }),
   );
@@ -410,7 +422,7 @@ function ActionsPanel({
   return (
     <Animated.View style={[styles.rightPanel, panelStyle]}>
       <ActionButton icon="trash" label={t.home.delete} color={ACTION_COLORS.delete} style={sideStyle} onPress={() => onAction('delete')} testID="row-delete" />
-      <ActionButton icon="archive" label={t.home.archive} color={ACTION_COLORS.archive} style={sideStyle} onPress={() => onAction('archive')} testID="row-archive" />
+      <ActionButton icon={ACTION_ICONS[middle]} label={actionLabel(middle)} color={ACTION_COLORS[middle]} style={sideStyle} onPress={() => onAction(middle)} testID={`row-${middle}`} />
       <ActionButton icon="edit" label={t.home.edit} color={ACTION_COLORS.edit} style={editStyle} onPress={() => onAction('edit')} testID="row-edit" />
     </Animated.View>
   );
@@ -452,8 +464,8 @@ function ActionButton({
 
 /**
  * The menu of a row on the website: the same actions as the swipe, and
- * "Pause", for a mouse and a keyboard. A paused row has "Resume" in place
- * of "Mark as done" and "Pause".
+ * "Mark as done" or "Resume", for a mouse and a keyboard. An active row has
+ * "Pause". A paused row has "Resume" and "Archive".
  */
 function RowMenu({
   title,
@@ -467,18 +479,12 @@ function RowMenu({
   onAction: (action: RowAction) => void;
 }) {
   const { colors, spacing, typography } = useTheme();
-  const first: { action: RowAction; icon: IconName; label: string; color: string }[] = paused
-    ? [{ action: 'resume', icon: 'play', label: t.home.resume, color: colors.text }]
-    : [
-        { action: 'done', icon: 'check', label: t.home.markDone, color: colors.text },
-        { action: 'pause', icon: 'pause', label: t.home.pause, color: colors.text },
-      ];
-  const items: { action: RowAction; icon: IconName; label: string; color: string }[] = [
-    ...first,
-    { action: 'edit', icon: 'edit', label: t.home.edit, color: colors.text },
-    { action: 'archive', icon: 'archive', label: t.home.archive, color: colors.text },
-    { action: 'delete', icon: 'trash', label: t.home.delete, color: colors.danger },
-  ];
+  const items = rowMenuActions(paused).map((action) => ({
+    action,
+    icon: ACTION_ICONS[action],
+    label: actionLabel(action),
+    color: action === 'delete' ? colors.danger : colors.text,
+  }));
   return (
     <Sheet visible title={title} onClose={onClose} testID="row-menu">
       <View>

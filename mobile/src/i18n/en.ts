@@ -98,10 +98,11 @@ export const en = {
     noResultBody: (query: string) => `No gauge name contains “${query}”.`,
     markDone: 'Mark as done',
     swipeDone: 'Done',
-    swipeHint: 'Swipe right when you do a chore. Swipe left to edit, archive, or delete.',
+    swipeHint: 'Swipe right when you do a chore. Swipe left to edit, pause, or delete.',
     doneToast: (name: string) => `${name}: done`,
-    rowHint: 'Swipe right to mark it as done. Swipe left to edit, archive, or delete.',
+    rowHint: 'Swipe right to mark it as done. Swipe left to edit, pause, or delete.',
     // The buttons that a swipe to the left shows, and the menu of a row on the website.
+    // An active row has "Pause", and a paused row has "Archive".
     edit: 'Edit',
     archive: 'Archive',
     delete: 'Delete',

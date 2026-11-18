@@ -5,8 +5,9 @@
  *
  * - A short swipe to the right shows the "Done" button. A full swipe to the
  *   right marks the gauge done.
- * - A short swipe to the left shows Delete, Archive, and Edit. A full swipe
- *   to the left opens the gauge page.
+ * - A short swipe to the left shows Delete, Pause, and Edit (Archive in
+ *   place of Pause on a paused row, see `rowActions.ts`). A full swipe to
+ *   the left opens the gauge page.
  */
 
 /** The width of the "Done" button that a short swipe to the right shows. */
