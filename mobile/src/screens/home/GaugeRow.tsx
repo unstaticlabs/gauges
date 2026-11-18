@@ -366,7 +366,8 @@ function DonePanel({ offset, resume, onPress }: { offset: SharedValue<number>; r
     width: Math.max(0, offset.get()),
   }));
   const background = resume ? colors.accent : colors.gauge.green;
-  const foreground = resume ? colors.textOnAccent : colors.textOnGreen;
+  // "Done" is white, the same as the other swipe buttons (2.2:1 on the green).
+  const foreground = resume ? colors.textOnAccent : '#FFFFFF';
   return (
     <Animated.View style={[styles.leftPanel, { backgroundColor: background }, style]}>
       <Pressable

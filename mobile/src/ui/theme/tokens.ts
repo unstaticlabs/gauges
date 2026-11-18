@@ -101,7 +101,12 @@ export interface ThemeColors {
    * 3:1 or more on `gaugeTrack`. The text of the row also says "Paused".
    */
   gaugePaused: string;
-  /** The text on the green panel of a swipe. The old white text fails the contrast check. */
+  /**
+   * The text on a green button and on the green "done" badge of a row. The
+   * "Done" swipe button is the exception: its text and icon are white, for
+   * consistency with the other swipe buttons. White on this green has a
+   * contrast of 2.2:1.
+   */
   textOnGreen: string;
   gauge: typeof gaugeColors;
 }
