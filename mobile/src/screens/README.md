@@ -84,18 +84,34 @@ renders one screen from here.
   the data layer keeps the objects of the gauges that did not change
   (`reuseUnchanged`). A memoized row then renders again only when it
   changes, not on each tick of the clock or on each snapshot.
-- The gauge page has the state (the same bar as the rows), the settings of
-  the gauge, the switch "Remind me about this gauge", "Pause" or "Resume"
-  with one line of help, the history (the 5 most recent executions, and
-  "I did it on…"), then Delete. A paused gauge also has Archive, before
-  Delete. A pause is for all members, and
-  it needs a connection (a transaction). A paused gauge shows "Paused since
-  …" in place of "Turns red in …". It
-  has no "Done" button: the row has the action. Save shows only when there
-  is a change. A press on an execution opens a sheet to change its time or
-  to remove it.
-- A form with changes asks "Discard your changes?" before it closes
-  (`usePreventRemove`).
+- The gauge page has, from the top: the status of the autosave, the state
+  (the same bar as the rows), "Pause" or "Resume" with one line of help,
+  the settings of the gauge, the switch "Remind me about this gauge", the
+  history (the 5 most recent executions, and "I did it on…"), then Delete.
+  A paused gauge also has Archive, before Delete. A pause is for all
+  members, and it needs a connection (a transaction). A paused gauge shows
+  "Paused since …" in place of "Turns red in …". It has no "Done" button:
+  the row has the action. A press on an execution opens a sheet to change
+  its time or to remove it.
+- The gauge page has no Save: each change saves by itself
+  (`gauge/autosave.ts`, `gauge/useGaugeAutosave.ts`).
+  - A choice (interval preset, curve, label, reminder) saves at once.
+  - A text (the name, the free number of days) saves 0.6 seconds after the
+    last key press, on blur, and when the user leaves the page or the app
+    goes to the background (on the website: the browser hides the tab).
+  - An invalid value does not save. The field shows its error, and the
+    data keeps the last valid value.
+  - A save writes only the fields that the user changed, and only when the
+    value differs from the data. So two members who change different
+    fields do not overwrite each other. A change from the server does not
+    reset the field that the user types in.
+  - A small line at the top says "Saving…", "Saved", or "Not saved." with
+    the reason. Screen readers hear "Saved" and the error, not "Saving…".
+    A failed save keeps the text of the user and tries again with the next
+    change.
+- The create form saves with its Save button. With changes, it asks
+  "Discard your changes?" before it closes (`usePreventRemove`). The gauge
+  page never asks.
 - A toast that is older than 0.7 seconds goes away when the screen changes,
   so that it does not cover a button of the next screen.
 
