@@ -1,4 +1,3 @@
-import type { GaugeChanges } from '@/data';
 import { type Curve, curveFill, EMPTY_AFTER_FACTOR, type Gauge } from '@/domain';
 
 /** The quick choices of the interval control, in days. */
@@ -46,24 +45,6 @@ export function validateGaugeForm(values: GaugeFormValues, limits: GaugeFormLimi
 /** Gives the form values of an existing gauge. */
 export function valuesFromGauge(gauge: Pick<Gauge, 'name' | 'repeatDays' | 'curve'>): GaugeFormValues {
   return { name: gauge.name, repeatDays: gauge.repeatDays, curve: gauge.curve };
-}
-
-/**
- * Gives only the fields that differ from the gauge. An empty object means
- * that there is nothing to save. The name is trimmed.
- */
-export function changesFrom(
-  gauge: Pick<Gauge, 'name' | 'repeatDays' | 'curve'>,
-  values: GaugeFormValues,
-): GaugeChanges {
-  const changes: GaugeChanges = {};
-  const name = values.name.trim();
-  if (name !== gauge.name) changes.name = name;
-  if (values.repeatDays !== null && values.repeatDays !== gauge.repeatDays) {
-    changes.repeatDays = values.repeatDays;
-  }
-  if (values.curve !== gauge.curve) changes.curve = values.curve;
-  return changes;
 }
 
 /**

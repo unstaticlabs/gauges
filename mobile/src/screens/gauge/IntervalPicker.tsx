@@ -11,13 +11,16 @@ import { INTERVAL_PRESETS, isPreset, parseDays } from './form';
 export interface IntervalPickerProps {
   /** `null` when the free number is not valid. */
   value: number | null;
-  onChange: (days: number | null) => void;
-  /** `true` after the user tried to save, to show the error. */
+  /** `source` is `choice` for a quick choice, and `text` for the free number. */
+  onChange: (days: number | null, source: 'choice' | 'text') => void;
+  /** Called when the free number loses the focus. */
+  onBlur?: () => void;
+  /** `true` to show the error of an invalid free number. */
   showError: boolean;
 }
 
 /** Quick choices for common intervals, in days, and a free number of days. */
-export function IntervalPicker({ value, onChange, showError }: IntervalPickerProps) {
+export function IntervalPicker({ value, onChange, onBlur, showError }: IntervalPickerProps) {
   const { spacing } = useTheme();
   const [custom, setCustom] = useState(value !== null && !isPreset(value));
   const [text, setText] = useState(value !== null && !isPreset(value) ? String(value) : '');
@@ -37,7 +40,7 @@ export function IntervalPicker({ value, onChange, showError }: IntervalPickerPro
         value={custom ? null : value}
         onChange={(days) => {
           setCustom(false);
-          onChange(days);
+          onChange(days, 'choice');
         }}
         accessibilityLabel={t.gauge.interval}
       />
@@ -46,8 +49,9 @@ export function IntervalPicker({ value, onChange, showError }: IntervalPickerPro
           value={text}
           onChangeText={(next) => {
             setText(next);
-            onChange(parseDays(next, REPEAT_DAYS_MAX));
+            onChange(parseDays(next, REPEAT_DAYS_MAX), 'text');
           }}
+          onBlur={onBlur}
           keyboardType="number-pad"
           inputMode="numeric"
           placeholder={t.gauge.intervalDaysInput}
@@ -64,7 +68,7 @@ export function IntervalPicker({ value, onChange, showError }: IntervalPickerPro
           onPress={() => {
             setCustom(true);
             setFocusField(true);
-            onChange(parseDays(text, REPEAT_DAYS_MAX));
+            onChange(parseDays(text, REPEAT_DAYS_MAX), 'text');
           }}
           style={styles.start}
           testID="interval-other"

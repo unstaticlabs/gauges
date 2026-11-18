@@ -319,7 +319,10 @@ export const en = {
     keepEditing: 'Keep editing',
     notFound: 'This gauge does not exist anymore.',
     labels: 'Labels',
+    // The status of the autosave of the gauge page.
+    saving: 'Saving…',
     saved: 'Saved',
+    notSaved: (reason: string) => `Not saved. ${reason}`,
   },
 
   settings: {
