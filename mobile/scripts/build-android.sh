@@ -3,6 +3,7 @@
 #
 #   scripts/build-android.sh          # the .aab
 #   scripts/build-android.sh --apk    # also a release .apk, to install on a test phone
+#   scripts/build-android.sh --upload # the .aab, then upload it to Google Play
 #
 # It needs the config of your deployment: google-services.json and
 # .env.local (see README.md). It refuses to build in demo mode.
@@ -11,16 +12,23 @@
 # the upload key in mobile/keystore.properties (see keystore.properties.example).
 # Without that file, it signs with the debug key, and Google Play refuses the
 # bundle. The output goes to mobile/build/.
+#
+# --upload sends the signed bundle to a track of Google Play with
+# scripts/upload-android.mjs. It needs keystore.properties, and
+# PLAY_SERVICE_ACCOUNT_PATH (and optionally PLAY_TRACK) in .env.local (see
+# README.md). It checks them before the build starts.
 set -eu
 
 cd "$(dirname "$0")/.."
 MOBILE=$(pwd)
 OUT="$MOBILE/build"
 APK=0
+UPLOAD=0
 for arg in "$@"; do
   case "$arg" in
     --apk) APK=1 ;;
-    -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
+    --upload) UPLOAD=1 ;;
+    -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
     *) echo "Unknown option: $arg" >&2; exit 2 ;;
   esac
 done
@@ -39,6 +47,14 @@ for name in EXPO_PUBLIC_FIREBASE_API_KEY EXPO_PUBLIC_FIREBASE_PROJECT_ID EXPO_PU
   grep -q "^$name=." .env.local || stop "$name has no value in .env.local."
 done
 grep -q '^EXPO_PUBLIC_FIREBASE_EMULATOR_HOST=' .env.local && stop ".env.local sets EXPO_PUBLIC_FIREBASE_EMULATOR_HOST. Remove the line."
+
+# The upload needs the upload key and the Google Play settings. Check them
+# now, before the long build. The check reads the key file, but it does not
+# use the network and does not print the key.
+if [ "$UPLOAD" = 1 ]; then
+  [ -f keystore.properties ] || stop "--upload needs a bundle signed with the upload key. Add keystore.properties (see keystore.properties.example)."
+  node scripts/upload-android.mjs --check || exit 1
+fi
 
 # 2. Tools: JDK 17 or later, and the Android SDK.
 java_major() { "$1" -version 2>&1 | sed -n 's/.*version "\([0-9]*\).*/\1/p' | head -n 1; }
@@ -99,7 +115,15 @@ echo "Bundle: $AAB"
 if [ "$SIGNED" = 0 ] || echo "$SIGNER" | grep -q 'Android Debug'; then
   echo
   echo "NOT FOR UPLOAD: this bundle has the debug key. Add keystore.properties and run again."
+  [ "$UPLOAD" = 1 ] && stop "--upload does not upload a bundle with the debug key."
   exit 0
 fi
-echo
-echo "Upload the bundle in the Play Console."
+if [ "$UPLOAD" = 0 ]; then
+  echo
+  echo "Upload the bundle in the Play Console, or run this script with --upload."
+  exit 0
+fi
+
+# 7. Upload to Google Play.
+# The script prints UPLOAD OK, or STOP with the reason.
+node scripts/upload-android.mjs "$AAB" || exit 1

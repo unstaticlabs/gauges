@@ -35,7 +35,7 @@ example:
 
 | File | Example | What it holds |
 |---|---|---|
-| `.env.local` | `.env.example` | The Firebase web config, the Google web client ID, the website URL, the Apple team ID for the iOS build, and an optional App Store Connect API key (see "Release builds"). |
+| `.env.local` | `.env.example` | The Firebase web config, the Google web client ID, the website URL, the Apple team ID for the iOS build, an optional App Store Connect API key, and an optional Google Play service account (see "Release builds"). |
 | `GoogleService-Info.plist` | `GoogleService-Info.plist.example` | The Firebase config of the iOS app. |
 | `google-services.json` | `google-services.json.example` | The Firebase config of the Android app. |
 | `.firebaserc` | `.firebaserc.example` | The Firebase project for the website deploy. |
@@ -182,7 +182,7 @@ The release builds need the config of your deployment (see "Config").
 | Command | What it does |
 |---|---|
 | `npm run deploy:web` | Builds the website into `dist/` and checks it: no emulator host, the config of `.env.local`, the Content-Security-Policy hashes, and no HTML comment in the static pages. It prints the deploy command. With `-- --deploy`, it also deploys to Firebase Hosting. |
-| `npm run build:android` | A clean prebuild, then a signed Android App Bundle in `build/`. Add `-- --apk` for an APK too. |
+| `npm run build:android` | A clean prebuild, then a signed Android App Bundle in `build/`. Add `-- --apk` for an APK too. Add `-- --upload` to upload the bundle to a Google Play track after the build (it needs the service account below). |
 | `npm run build:ios` | A clean prebuild, then a signed `.ipa` in `build/`. Add `-- --unsigned` for a compile check without signing. Add `-- --upload` to upload the `.ipa` to App Store Connect after the export (it needs the API key below). |
 
 The iOS build signs with the Apple account that is logged in to Xcode
@@ -217,6 +217,61 @@ new build number for each upload.
 `firebase.json` has the placeholder `${FIREBASE_AUTH_DOMAIN}` in the
 Content-Security-Policy. `npm run deploy:web` writes `firebase.deploy.json`
 with your auth domain, and the deploy uses that file.
+
+### Upload to Google Play
+
+`npm run build:android -- --upload` builds the signed bundle, then uploads
+it with the Google Play Developer API (`scripts/upload-android.mjs`). The
+upload does these steps:
+
+1. It gets an access token for the service account.
+2. It creates an edit and uploads the bundle into it.
+3. It sets one release on the track, with the name
+   `<version> (<version code>)` and the status `completed`.
+4. It commits the edit. Then Google Play rolls out the release to the
+   testers of the track.
+
+The package name is `expo.android.package` in `app.json`. The upload needs
+a service account with access to the app. Do these steps one time:
+
+1. In a Google Cloud project, enable the "Google Play Android Developer
+   API".
+2. In the same project, create a service account and a JSON key for it.
+   Keep the key file outside the repository.
+3. In Play Console, go to **Users and permissions** and invite the email
+   of the service account. Give it access to the app, with the permission
+   to release apps to testing tracks.
+
+Then set the path of the key file in `.env.local`. `PLAY_TRACK` is
+optional. The default is `internal`.
+
+```sh
+PLAY_SERVICE_ACCOUNT_PATH=~/keys/play-service-account.json
+PLAY_TRACK=internal
+```
+
+`--upload` stops before the build if `keystore.properties` is missing, if
+`PLAY_SERVICE_ACCOUNT_PATH` has no value, or if the key file is not
+readable, is not a service account key, or is inside the repository. It
+refuses a bundle with the debug key. The script prints the email of the
+service account, but never the key or the token. It prints `UPLOAD OK` or
+stops with the HTTP status, the error message of Google, and a non-zero
+exit. For the common errors, it also gives a hint. If a step fails, the script does not commit the edit, so
+nothing changes in Google Play. The API output goes to
+`build/upload-android-<version>-<build>.log`.
+
+To test the access without a release, do a dry run with a bundle that you
+built before:
+
+```sh
+node scripts/upload-android.mjs --dry-run build/gauges-<version>-<build>.aab
+```
+
+The dry run does all the steps, but it validates the edit
+(`edits.validate`) in place of the commit, and then deletes the edit.
+Google Play refuses a version code that it already has, also in a dry
+run. To upload a bundle that you built before, run the same command
+without `--dry-run`.
 
 ## Add a package
 
