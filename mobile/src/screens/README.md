@@ -38,9 +38,12 @@ renders one screen from here.
 - The rows work as in a mail app (`home/swipe.ts`):
   - A short swipe to the right shows a green "Done" button. It stays open
     until a tap. A full swipe to the right marks the gauge done.
-  - A short swipe to the left shows Delete, Archive, and Edit. Delete asks
-    first. Archive shows a toast with "Undo". A full swipe to the left
-    opens the gauge page.
+  - A short swipe to the left shows Pause and Edit. Pause shows a toast
+    with "Undo". A full swipe to the left opens the gauge page.
+  - An active gauge has "Pause" and no "Archive", so that a gauge does not
+    leave the lists by mistake. Only a paused gauge has "Archive". A row
+    has no "Delete": Delete is on the gauge page only. The rules are in
+    `home/rowActions.ts`.
   - One row is open at a time. A scroll, a tap on a row, or a move to
     another screen closes it (`home/openRow.ts`).
   - A tap on a row does nothing else, and the row has no pressed color.
@@ -55,8 +58,8 @@ renders one screen from here.
   row has `touch-action: pan-y`, so that the browser scrolls the page. The
   gesture config sets it, because in gesture-handler 3.3 the detector
   prop alone gets lost on the web.
-- Screen readers get the actions "Mark as done", "Pause", "Edit",
-  "Archive", and "Delete" on each row. The website also shows a small "⋯"
+- Screen readers get the actions "Mark as done", "Pause", and "Edit" on
+  each active row. The website also shows a small "⋯"
   button at the end of the bar of each row, for a mouse and a keyboard. It
   opens a menu with the same actions. It shows on all screen sizes of the
   website, because a phone browser has no screen reader actions either.
@@ -65,12 +68,9 @@ renders one screen from here.
   grey bar at its frozen level, a muted name, and "Paused since 3 Oct" (a
   date in the format of the device) in place of "Done … ago". It has no
   "Done": the short swipe to the right shows "Resume", and the full swipe
-  resumes the gauge. Edit, Archive, and Delete stay. Its screen reader
-  actions and its "⋯" menu have "Resume" in place of "Mark as done" and
-  "Pause". The swipe to the left has no "Pause": a fourth button does not
-  fit at a width of 320 points (4 × 76 points, and the full swipe needs
-  more than the width of the row). Pause is on the gauge page, in the
-  "⋯" menu, and in the screen reader actions.
+  resumes the gauge. Its swipe to the left shows Archive and Edit. Its
+  screen reader actions and its "⋯" menu have "Resume", "Edit", and
+  "Archive".
 - Until the first swipe on the device, a line above the home list explains
   both directions, and the first active row opens a little to the right,
   then to the left, one time in each app start
@@ -84,17 +84,34 @@ renders one screen from here.
   the data layer keeps the objects of the gauges that did not change
   (`reuseUnchanged`). A memoized row then renders again only when it
   changes, not on each tick of the clock or on each snapshot.
-- The gauge page has the state (the same bar as the rows), the settings of
-  the gauge, the switch "Remind me about this gauge", "Pause" or "Resume"
-  with one line of help, the history (the 5 most recent executions, and
-  "I did it on…"), then Archive and Delete. A pause is for all members, and
-  it needs a connection (a transaction). A paused gauge shows "Paused since
-  …" in place of "Turns red in …". It
-  has no "Done" button: the row has the action. Save shows only when there
-  is a change. A press on an execution opens a sheet to change its time or
-  to remove it.
-- A form with changes asks "Discard your changes?" before it closes
-  (`usePreventRemove`).
+- The gauge page has, from the top: the status of the autosave, the state
+  (the same bar as the rows), "Pause" or "Resume" with one line of help,
+  the settings of the gauge, the switch "Remind me about this gauge", the
+  history (the 5 most recent executions, and "I did it on…"), then Delete.
+  A paused gauge also has Archive, before Delete. A pause is for all
+  members, and it needs a connection (a transaction). A paused gauge shows
+  "Paused since …" in place of "Turns red in …". It has no "Done" button:
+  the row has the action. A press on an execution opens a sheet to change
+  its time or to remove it.
+- The gauge page has no Save: each change saves by itself
+  (`gauge/autosave.ts`, `gauge/useGaugeAutosave.ts`).
+  - A choice (interval preset, curve, label, reminder) saves at once.
+  - A text (the name, the free number of days) saves 0.6 seconds after the
+    last key press, on blur, and when the user leaves the page or the app
+    goes to the background (on the website: the browser hides the tab).
+  - An invalid value does not save. The field shows its error, and the
+    data keeps the last valid value.
+  - A save writes only the fields that the user changed, and only when the
+    value differs from the data. So two members who change different
+    fields do not overwrite each other. A change from the server does not
+    reset the field that the user types in.
+  - A small line at the top says "Saving…", "Saved", or "Not saved." with
+    the reason. Screen readers hear "Saved" and the error, not "Saving…".
+    A failed save keeps the text of the user and tries again with the next
+    change.
+- The create form saves with its Save button. With changes, it asks
+  "Discard your changes?" before it closes (`usePreventRemove`). The gauge
+  page never asks.
 - A toast that is older than 0.7 seconds goes away when the screen changes,
   so that it does not cover a button of the next screen.
 

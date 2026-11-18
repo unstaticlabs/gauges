@@ -98,19 +98,19 @@ export const en = {
     noResultBody: (query: string) => `No gauge name contains “${query}”.`,
     markDone: 'Mark as done',
     swipeDone: 'Done',
-    swipeHint: 'Swipe right when you do a chore. Swipe left to edit, archive, or delete.',
+    swipeHint: 'Swipe right when you do a chore. Swipe left to pause or edit.',
     doneToast: (name: string) => `${name}: done`,
-    rowHint: 'Swipe right to mark it as done. Swipe left to edit, archive, or delete.',
+    rowHint: 'Swipe right to mark it as done. Swipe left to pause or edit.',
     // The buttons that a swipe to the left shows, and the menu of a row on the website.
+    // An active row has "Pause", and a paused row has "Archive". Delete is on the gauge page only.
     edit: 'Edit',
     archive: 'Archive',
-    delete: 'Delete',
     rowActions: (name: string) => `Actions for ${name}`,
     // The pause of a gauge. A paused gauge does not empty and gets no reminder.
     pause: 'Pause',
     resume: 'Resume',
     swipeResume: 'Resume',
-    rowHintPaused: 'Swipe right to resume it. Swipe left to edit, archive, or delete.',
+    rowHintPaused: 'Swipe right to resume it. Swipe left to archive or edit.',
     /** The heading above the paused gauges at the end of a list. */
     pausedSection: 'Paused',
     /** The second line of a paused row, in place of "Done … ago". */
@@ -319,7 +319,10 @@ export const en = {
     keepEditing: 'Keep editing',
     notFound: 'This gauge does not exist anymore.',
     labels: 'Labels',
+    // The status of the autosave of the gauge page.
+    saving: 'Saving…',
     saved: 'Saved',
+    notSaved: (reason: string) => `Not saved. ${reason}`,
   },
 
   settings: {

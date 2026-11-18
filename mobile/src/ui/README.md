@@ -29,6 +29,7 @@ The app follows the look of the old Gauges app:
   in a row. The fill is at least 3 %, so that an empty gauge shows its red.
 - The blue of the old app (`#39F`) has a contrast of 2.9:1 on white. Light
   mode uses `#0A6FD6` for text and buttons. Dark mode uses `#39F` on black.
-- The green of a full gauge has a contrast of 2.2:1 with white text. The
-  swipe panel and the "Done" button keep the green, with dark green text
-  (`textOnGreen`).
+- The green of a full gauge has a contrast of 2.2:1 with white text. A
+  green button and the "done" badge of a row keep the green, with dark
+  green text (`textOnGreen`). The "Done" swipe button has white text and
+  a white icon, for consistency with the other swipe buttons, at 2.2:1.

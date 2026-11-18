@@ -1,4 +1,5 @@
 import {
+  ACTION_BUTTON_WIDTH,
   ACTIONS_WIDTH,
   DONE_BUTTON_WIDTH,
   fullSwipeDistance,
@@ -9,15 +10,21 @@ import {
 const WIDTH = 400;
 
 describe('fullSwipeDistance', () => {
-  it('is half the row to the right, and past the three buttons to the left', () => {
+  it('is half the row to the right, and past the two buttons to the left', () => {
     expect(fullSwipeDistance(WIDTH, 'right')).toBe(200);
-    expect(fullSwipeDistance(WIDTH, 'left')).toBe(ACTIONS_WIDTH + 48);
+    expect(fullSwipeDistance(WIDTH, 'left')).toBe(260);
     expect(fullSwipeDistance(600, 'left')).toBe(390);
+    // On a narrow row, the full swipe stays 48 points past the two buttons.
+    expect(fullSwipeDistance(300, 'left')).toBe(ACTIONS_WIDTH + 48);
   });
 
   it('stays past the buttons on a narrow row', () => {
     expect(fullSwipeDistance(200, 'right')).toBeGreaterThan(DONE_BUTTON_WIDTH);
     expect(fullSwipeDistance(200, 'left')).toBeGreaterThan(ACTIONS_WIDTH);
+  });
+
+  it('has room for the two buttons of the swipe to the left', () => {
+    expect(ACTIONS_WIDTH).toBe(ACTION_BUTTON_WIDTH * 2);
   });
 });
 
@@ -37,7 +44,7 @@ describe('settleSwipe', () => {
     expect(settleSwipe(390, 0, WIDTH)).toBe('done');
   });
 
-  it('shows the three buttons after a short swipe to the left', () => {
+  it('shows the two buttons after a short swipe to the left', () => {
     expect(settleSwipe(-70, 0, WIDTH)).toBe('close');
     expect(settleSwipe(-90, 0, WIDTH)).toBe('showActions');
     expect(settleSwipe(-130, 0, WIDTH)).toBe('showActions');
@@ -45,7 +52,8 @@ describe('settleSwipe', () => {
   });
 
   it('opens the gauge after a full swipe to the left', () => {
-    expect(settleSwipe(-(ACTIONS_WIDTH + 48), 0, WIDTH)).toBe('edit');
+    expect(settleSwipe(-260, 0, WIDTH)).toBe('edit');
+    expect(settleSwipe(-(ACTIONS_WIDTH + 48), 0, 300)).toBe('edit');
   });
 
   it('counts a fast flick as a longer swipe', () => {

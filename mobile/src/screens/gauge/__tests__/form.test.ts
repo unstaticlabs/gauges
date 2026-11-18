@@ -1,5 +1,4 @@
 import {
-  changesFrom,
   choicesFromGauge,
   daysUntilLevel,
   hasLabelChanges,
@@ -45,22 +44,6 @@ describe('validateGaugeForm', () => {
     expect(validateGaugeForm({ name: 'Too long', repeatDays: 1, curve: 'ease' }, limits)).toEqual({
       name: 'tooLong',
     });
-  });
-});
-
-describe('changesFrom', () => {
-  const gauge = { name: 'Bins', repeatDays: 7, curve: 'linear' as const };
-
-  it('gives nothing when nothing changed', () => {
-    expect(changesFrom(gauge, { name: ' Bins ', repeatDays: 7, curve: 'linear' })).toEqual({});
-  });
-
-  it('gives only the changed fields', () => {
-    expect(changesFrom(gauge, { name: 'Trash', repeatDays: 14, curve: 'linear' })).toEqual({
-      name: 'Trash',
-      repeatDays: 14,
-    });
-    expect(changesFrom(gauge, { name: 'Bins', repeatDays: null, curve: 'ease' })).toEqual({ curve: 'ease' });
   });
 });
 
