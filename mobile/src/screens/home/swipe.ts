@@ -5,16 +5,16 @@
  *
  * - A short swipe to the right shows the "Done" button. A full swipe to the
  *   right marks the gauge done.
- * - A short swipe to the left shows Delete, Pause, and Edit (Archive in
- *   place of Pause on a paused row, see `rowActions.ts`). A full swipe to
- *   the left opens the gauge page.
+ * - A short swipe to the left shows Pause and Edit (Archive in place of
+ *   Pause on a paused row, see `rowActions.ts`). A full swipe to the left
+ *   opens the gauge page. Delete is on the gauge page only.
  */
 
 /** The width of the "Done" button that a short swipe to the right shows. */
 export const DONE_BUTTON_WIDTH = 96;
-/** The width of each of the three buttons that a short swipe to the left shows. */
+/** The width of each of the two buttons that a short swipe to the left shows. */
 export const ACTION_BUTTON_WIDTH = 76;
-export const ACTIONS_WIDTH = ACTION_BUTTON_WIDTH * 3;
+export const ACTIONS_WIDTH = ACTION_BUTTON_WIDTH * 2;
 
 /**
  * A horizontal move of this many points starts the swipe. A vertical move of
@@ -52,9 +52,9 @@ export function settleSwipe(offset: number, velocity: number, width: number): Sw
     return projected > DONE_BUTTON_WIDTH / 2 ? 'showDone' : 'close';
   }
   if (-projected >= fullSwipeDistance(width, 'left')) return 'edit';
-  // One button of travel is enough to open the three buttons: half of the
-  // three (114 points) was too far for a short swipe.
-  return -projected > ACTION_BUTTON_WIDTH ? 'showActions' : 'close';
+  // Half of the two buttons (one button of travel) opens them, as half of
+  // the "Done" button opens it on the other side.
+  return -projected > ACTIONS_WIDTH / 2 ? 'showActions' : 'close';
 }
 
 /** The resting position of the row for an outcome. */

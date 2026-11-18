@@ -8,17 +8,22 @@
  *   paused, and the archive moves it out of the lists.
  */
 
-/** An action of a row. "Done" and "Pause" are for an active gauge, "Resume" and "Archive" for a paused gauge. */
-export type RowAction = 'done' | 'resume' | 'pause' | 'edit' | 'archive' | 'delete';
+/**
+ * An action of a row. "Done" and "Pause" are for an active gauge, "Resume"
+ * and "Archive" for a paused gauge. A row has no "Delete": it is on the
+ * gauge page only, so that a swipe or a menu cannot delete a gauge by
+ * mistake.
+ */
+export type RowAction = 'done' | 'resume' | 'pause' | 'edit' | 'archive';
 
 /** The action of a swipe to the right: "Done", or "Resume" on a paused row. */
 export function swipeRightAction(paused: boolean): 'done' | 'resume' {
   return paused ? 'resume' : 'done';
 }
 
-/** The three buttons of a short swipe to the left, from left to right. */
-export function swipeLeftActions(paused: boolean): readonly ['delete', 'pause' | 'archive', 'edit'] {
-  return ['delete', paused ? 'archive' : 'pause', 'edit'];
+/** The two buttons of a short swipe to the left, from left to right. */
+export function swipeLeftActions(paused: boolean): readonly ['pause' | 'archive', 'edit'] {
+  return [paused ? 'archive' : 'pause', 'edit'];
 }
 
 /**
@@ -26,5 +31,5 @@ export function swipeLeftActions(paused: boolean): readonly ['delete', 'pause' |
  * screen reader actions of the row use the same list.
  */
 export function rowMenuActions(paused: boolean): RowAction[] {
-  return paused ? ['resume', 'edit', 'archive', 'delete'] : ['done', 'pause', 'edit', 'delete'];
+  return paused ? ['resume', 'edit', 'archive'] : ['done', 'pause', 'edit'];
 }

@@ -36,7 +36,7 @@ function rowText(gauge: Gauge, now: number): string {
 /**
  * The rows of gauges as one flat list with hairlines between the rows, as
  * in the old app. A swipe to the right marks a gauge done. A swipe to the
- * left shows Edit, Pause, and Delete (Archive on a paused row). With
+ * left shows Pause and Edit (Archive and Edit on a paused row). With
  * `hint`, the list explains the
  * swipe until the first swipe. The paused gauges come last, under the
  * heading "Paused". The hint never plays on a paused row.

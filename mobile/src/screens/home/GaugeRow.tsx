@@ -25,7 +25,7 @@ import { DoneBurst } from './DoneBurst';
 import { anyRowOpen, closeOpenRow, rowClosed, rowOpened } from './openRow';
 import { type RowAction, rowMenuActions, swipeLeftActions, swipeRightAction } from './rowActions';
 import {
-  ACTION_BUTTON_WIDTH,
+  ACTIONS_WIDTH,
   DONE_BUTTON_WIDTH,
   fullSwipeDistance,
   restingOffset,
@@ -46,7 +46,7 @@ const SNAP = { duration: 180 };
  * same in light and dark mode, so that the white text keeps a contrast of
  * 4.5:1 or more.
  */
-const ACTION_COLORS = { delete: '#D92D50', pause: '#6B6B6B', archive: '#6B6B6B', edit: '#0A6FD6' } as const;
+const ACTION_COLORS = { pause: '#6B6B6B', archive: '#6B6B6B', edit: '#0A6FD6' } as const;
 const IS_WEB = Platform.OS === 'web';
 
 export interface GaugeRowProps {
@@ -75,8 +75,7 @@ function actionLabel(action: RowAction): string {
   if (action === 'resume') return t.home.resume;
   if (action === 'pause') return t.home.pause;
   if (action === 'edit') return t.home.edit;
-  if (action === 'archive') return t.home.archive;
-  return t.home.delete;
+  return t.home.archive;
 }
 
 const ACTION_ICONS: Record<RowAction, IconName> = {
@@ -85,13 +84,12 @@ const ACTION_ICONS: Record<RowAction, IconName> = {
   pause: 'pause',
   edit: 'edit',
   archive: 'archive',
-  delete: 'trash',
 };
 
 /**
  * One gauge in a list: the name, the last execution and the interval, then
  * the bar. The swipe works as in a mail app (see `swipe.ts`): to the right
- * for "Done", to the left for Edit, Pause, and Delete. A tap on the row
+ * for "Done", to the left for Pause and Edit. A tap on the row
  * does nothing, except that it closes an open row. Screen readers get the
  * same actions on the row (see `rowActions.ts`). The website also shows a
  * small menu button, for a mouse and a keyboard.
@@ -130,7 +128,7 @@ export const GaugeRow = memo(function GaugeRow({
         withSequence(
           withTiming(DONE_BUTTON_WIDTH, { duration: 380 }),
           withDelay(600, withTiming(0, { duration: 300 })),
-          withDelay(250, withTiming(-ACTION_BUTTON_WIDTH * 2, { duration: 380 })),
+          withDelay(250, withTiming(-ACTIONS_WIDTH, { duration: 380 })),
           withDelay(600, withTiming(0, { duration: 300 })),
         ),
       ),
@@ -159,8 +157,7 @@ export const GaugeRow = memo(function GaugeRow({
     else if (action === 'resume') actions.resume(gauge);
     else if (action === 'pause') actions.pause(gauge);
     else if (action === 'edit') actions.edit(gauge);
-    else if (action === 'archive') actions.archive(gauge);
-    else void actions.remove(gauge);
+    else actions.archive(gauge);
   };
 
   // The gesture runs on the UI thread. It calls back into React through this
@@ -393,10 +390,10 @@ function DonePanel({ offset, resume, onPress }: { offset: SharedValue<number>; r
 }
 
 /**
- * The three buttons behind the row, on the right: Delete, Pause, and Edit,
- * or Delete, Archive, and Edit on a paused row. They grow with the swipe.
- * Past the full swipe, Edit takes the whole width, to show that the
- * release opens the gauge page.
+ * The two buttons behind the row, on the right: Pause and Edit, or Archive
+ * and Edit on a paused row. They grow with the swipe. Past the full swipe,
+ * Edit takes the whole width, to show that the release opens the gauge
+ * page.
  */
 function ActionsPanel({
   offset,
@@ -409,7 +406,7 @@ function ActionsPanel({
   paused: boolean;
   onAction: (action: RowAction) => void;
 }) {
-  const [, middle] = swipeLeftActions(paused);
+  const [first] = swipeLeftActions(paused);
   const full = useDerivedValue(() =>
     withTiming(-offset.get() >= fullSwipeDistance(width.get(), 'left') ? 1 : 0, { duration: 140 }),
   );
@@ -418,11 +415,10 @@ function ActionsPanel({
     width: Math.max(0, -offset.get()),
   }));
   const sideStyle = useAnimatedStyle(() => ({ flexGrow: 1 - full.get(), opacity: 1 - full.get() }));
-  const editStyle = useAnimatedStyle(() => ({ flexGrow: 1 + 2 * full.get() }));
+  const editStyle = useAnimatedStyle(() => ({ flexGrow: 1 + full.get() }));
   return (
     <Animated.View style={[styles.rightPanel, panelStyle]}>
-      <ActionButton icon="trash" label={t.home.delete} color={ACTION_COLORS.delete} style={sideStyle} onPress={() => onAction('delete')} testID="row-delete" />
-      <ActionButton icon={ACTION_ICONS[middle]} label={actionLabel(middle)} color={ACTION_COLORS[middle]} style={sideStyle} onPress={() => onAction(middle)} testID={`row-${middle}`} />
+      <ActionButton icon={ACTION_ICONS[first]} label={actionLabel(first)} color={ACTION_COLORS[first]} style={sideStyle} onPress={() => onAction(first)} testID={`row-${first}`} />
       <ActionButton icon="edit" label={t.home.edit} color={ACTION_COLORS.edit} style={editStyle} onPress={() => onAction('edit')} testID="row-edit" />
     </Animated.View>
   );
@@ -483,7 +479,7 @@ function RowMenu({
     action,
     icon: ACTION_ICONS[action],
     label: actionLabel(action),
-    color: action === 'delete' ? colors.danger : colors.text,
+    color: colors.text,
   }));
   return (
     <Sheet visible title={title} onClose={onClose} testID="row-menu">

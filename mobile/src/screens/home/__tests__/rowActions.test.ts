@@ -8,37 +8,43 @@ describe('swipeRightAction', () => {
 });
 
 describe('swipeLeftActions', () => {
-  it('shows Delete, Pause, and Edit on an active row', () => {
-    expect(swipeLeftActions(false)).toEqual(['delete', 'pause', 'edit']);
+  it('shows Pause and Edit on an active row', () => {
+    expect(swipeLeftActions(false)).toEqual(['pause', 'edit']);
   });
 
-  it('shows Delete, Archive, and Edit on a paused row', () => {
-    expect(swipeLeftActions(true)).toEqual(['delete', 'archive', 'edit']);
+  it('shows Archive and Edit on a paused row', () => {
+    expect(swipeLeftActions(true)).toEqual(['archive', 'edit']);
   });
 });
 
 describe('rowMenuActions', () => {
   it('gives an active row "Pause" and no "Archive"', () => {
     const actions = rowMenuActions(false);
-    expect(actions).toEqual(['done', 'pause', 'edit', 'delete']);
+    expect(actions).toEqual(['done', 'pause', 'edit']);
     expect(actions).not.toContain('archive');
     expect(actions).not.toContain('resume');
   });
 
   it('gives a paused row "Resume" and "Archive", and no "Pause" or "Done"', () => {
     const actions = rowMenuActions(true);
-    expect(actions).toEqual(['resume', 'edit', 'archive', 'delete']);
+    expect(actions).toEqual(['resume', 'edit', 'archive']);
     expect(actions).not.toContain('pause');
     expect(actions).not.toContain('done');
   });
 
-  it('has each action of the swipe in the menu, with no duplicate', () => {
+  it('never offers "Delete" on a row', () => {
+    for (const paused of [false, true]) {
+      expect(rowMenuActions(paused)).not.toContain('delete');
+      expect(swipeLeftActions(paused)).not.toContain('delete');
+    }
+  });
+
+  it('has the same actions in the menu as in the swipes, with no duplicate', () => {
     for (const paused of [false, true]) {
       const menu = rowMenuActions(paused);
       expect(new Set(menu).size).toBe(menu.length);
-      for (const action of [swipeRightAction(paused), ...swipeLeftActions(paused)]) {
-        expect(menu).toContain(action);
-      }
+      const swipes = [swipeRightAction(paused), ...swipeLeftActions(paused)];
+      expect([...menu].sort()).toEqual([...swipes].sort());
     }
   });
 });
