@@ -358,9 +358,9 @@ function GaugeForm({
             <>
               <AutosaveLine state={autosave} />
               <GaugeSummary gauge={gauge} now={now} />
+              <PauseControl gauge={gauge} />
               {fields}
               <MuteSwitch gauge={gauge} uid={user.uid} />
-              <PauseControl gauge={gauge} />
               <View style={[styles.rule, { backgroundColor: colors.border }]} />
               <HistorySection gauge={gauge} myUid={user.uid} now={now} />
               <View style={[styles.start, { gap: spacing.xs }]}>
