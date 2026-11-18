@@ -52,7 +52,10 @@ export function NewGaugeScreen({ labelId, name }: { labelId?: string; name?: str
   return <GaugeForm gauge={null} presetLabelId={labelId} presetName={name} />;
 }
 
-/** The page of one gauge: its state, its settings, the history, and archive and delete. */
+/**
+ * The page of one gauge: its state, its settings, the history, and delete.
+ * A paused gauge also has "Archive".
+ */
 export function EditGaugeScreen({ id }: { id: string }) {
   const gauge = useGauge(id);
   const { status } = useGauges();
@@ -286,7 +289,10 @@ function GaugeForm({
               <View style={[styles.rule, { backgroundColor: colors.border }]} />
               <HistorySection gauge={gauge} myUid={user.uid} now={now} />
               <View style={[styles.start, { gap: spacing.xs }]}>
-                <Button label={t.gauge.archive} icon="archive" variant="plain" onPress={archive} testID="gauge-archive" />
+                {/* An active gauge has "Pause" in place of "Archive". Archive is for a paused gauge. */}
+                {pausedSince(gauge) !== null ? (
+                  <Button label={t.gauge.archive} icon="archive" variant="plain" onPress={archive} testID="gauge-archive" />
+                ) : null}
                 <Button label={t.gauge.deleteGauge} icon="trash" variant="danger" onPress={remove} testID="gauge-delete" />
               </View>
             </>
